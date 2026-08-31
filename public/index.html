@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product Discovery Sessions</title>
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --ink:#16181d; --ink-2:#3a3f4a; --ink-3:#6b7280;
+  --line:#e2e5ea; --brand:#0f6f5c; --brand-ink:#ffffff; --accent:#0f6f5c;
+  --ok-bg:#e7f6ef; --ok-ink:#0f6f3f; --warn-bg:#fdf3e2; --warn-ink:#8a5a00;
+  --crit-bg:#fdecec; --crit-ink:#a3231a; --draft-bg:#eef0f3; --draft-ink:#4b5563;
+  --shadow:0 1px 2px rgba(16,20,30,.06), 0 8px 24px rgba(16,20,30,.06);
+}
+:root[data-theme="dark"]{
+  --bg:#14161a; --panel:#1c1f26; --ink:#eef0f3; --ink-2:#c7cbd4; --ink-3:#8b93a3;
+  --line:#2b2f38; --brand:#28a186; --brand-ink:#08110f; --accent:#3fbb9d;
+  --ok-bg:#123527; --ok-ink:#5fd8a4; --warn-bg:#3a2c0c; --warn-ink:#e2b354;
+  --crit-bg:#3a1414; --crit-ink:#f18f86; --draft-bg:#262a33; --draft-ink:#aab1bd;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14161a; --panel:#1c1f26; --ink:#eef0f3; --ink-2:#c7cbd4; --ink-3:#8b93a3;
+    --line:#2b2f38; --brand:#28a186; --brand-ink:#08110f; --accent:#3fbb9d;
+    --ok-bg:#123527; --ok-ink:#5fd8a4; --warn-bg:#3a2c0c; --warn-ink:#e2b354;
+    --crit-bg:#3a1414; --crit-ink:#f18f86; --draft-bg:#262a33; --draft-ink:#aab1bd;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{ --now-bg:#2c2308; --now-ink:#e2b354; --later-bg:#122a38; --later-ink:#6cc2e8; --future-bg:#241d33; --future-ink:#b79ef0; }
+:root:not([data-theme="dark"]){ --now-bg:#fdf3e2; --now-ink:#8a5a00; --later-bg:#e7f2fb; --later-ink:#1a5f8a; --future-bg:#f2edfb; --future-ink:#5a3d99; }
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+[hidden]{display:none!important}
+a{color:var(--accent)}
+button{font:inherit}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+.boot{display:flex;align-items:center;justify-content:center;height:100vh;color:var(--ink-3)}
+
+.gate{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.gate-box{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:32px;box-shadow:var(--shadow)}
+.gate-brand{font-weight:700;font-size:15px;color:var(--ink-2);margin-bottom:18px}
+.gate-brand span{display:block;font-weight:400;font-size:12px;color:var(--ink-3);margin-top:2px}
+.gate-box h1{font-size:20px;margin:0 0 6px}
+.gate-lede{color:var(--ink-3);font-size:13px;margin:0 0 20px}
+.gate-box label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--ink-3);margin-bottom:6px}
+.gate-box input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+  background:var(--bg);color:var(--ink);font-size:14px;margin-bottom:16px}
+.gate-box button{width:100%;padding:11px;border:0;border-radius:8px;background:var(--brand);
+  color:var(--brand-ink);font-weight:600;font-size:14px;cursor:pointer}
+.gate-box button:disabled{opacity:.6;cursor:default}
+.gate-err{background:var(--crit-bg);color:var(--crit-ink);padding:9px 12px;border-radius:8px;
+  font-size:13px;margin:0 0 14px}
+
+header.top{border-bottom:1px solid var(--line);background:var(--panel)}
+.hrow{display:flex;align-items:center;justify-content:space-between;padding:16px 0;flex-wrap:wrap;gap:12px}
+.brand{font-weight:700;font-size:16px}
+.brand span{font-weight:400;color:var(--ink-3);font-size:12px;margin-left:8px}
+.hactions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tbtn{padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
+  color:var(--ink-2);cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+.tbtn:hover{border-color:var(--accent)}
+.tbtn.active{border-color:var(--accent);color:var(--accent);font-weight:600}
+
+main{padding:28px 0 60px}
+h2.ph{font-size:22px;margin:0 0 4px}
+.sub{color:var(--ink-3);font-size:13px;margin:0 0 22px;max-width:680px}
+
+.dashhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.dashfilters{display:flex;gap:10px;flex-wrap:wrap}
+.filterin,select.sel{padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
+  color:var(--ink);font-size:13px}
+.filterin{min-width:220px}
+.btn{padding:9px 16px;border:0;border-radius:8px;background:var(--brand);color:var(--brand-ink);
+  font-weight:600;font-size:13px;cursor:pointer}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink-2)}
+.btn.danger{background:var(--crit-ink);color:#fff}
+.btn.small{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.6;cursor:default}
+
+table.datatable{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;overflow:hidden}
+table.datatable th,table.datatable td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);font-size:13.5px}
+table.datatable th{color:var(--ink-3);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+table.datatable tbody tr.clickable{cursor:pointer}
+table.datatable tbody tr.clickable:hover{background:var(--bg)}
+table.datatable tbody tr:last-child td{border-bottom:none}
+.empty{color:var(--ink-3);padding:40px 0;text-align:center;background:var(--panel);
+  border:1px dashed var(--line);border-radius:12px}
+
+.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;white-space:nowrap}
+.badge.draft{background:var(--draft-bg);color:var(--draft-ink)}
+.badge.ready,.badge.uptodate{background:var(--ok-bg);color:var(--ok-ink)}
+.badge.error{background:var(--crit-bg);color:var(--crit-ink)}
+.badge.stale,.badge.notbuilt{background:var(--warn-bg);color:var(--warn-ink)}
+
+form.sessform{max-width:680px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+.field label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+.field input[type=text],.field input[type=date],.field textarea,.field select{
+  padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
+  color:var(--ink);font:inherit}
+.field textarea{min-height:220px;resize:vertical;line-height:1.5;font-family:inherit}
+.field input[type=file]{font-size:13px;color:var(--ink-2)}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.row .field{flex:1;min-width:200px}
+.hint{font-size:12px;color:var(--ink-3)}
+.hint.over{color:var(--crit-ink);font-weight:700}
+.formfoot{display:flex;gap:12px;align-items:center;margin-top:8px}
+.err-box{background:var(--crit-bg);color:var(--crit-ink);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px}
+.addclient{display:flex;gap:8px;margin-top:8px}
+.addclient input{flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+
+.backlink{display:inline-block;margin-bottom:16px;color:var(--ink-2);text-decoration:none;font-size:13px}
+.backlink:hover{color:var(--accent)}
+.dhead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.dmeta h2{margin:0 0 4px;font-size:20px}
+.dmeta .subline{color:var(--ink-3);font-size:13px}
+.dactions{display:flex;gap:10px;flex-wrap:wrap}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+.panel h3{margin:0 0 12px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3)}
+.panel ul{margin:0;padding-left:20px}
+.panel li{margin-bottom:10px}
+.panel li:last-child{margin-bottom:0}
+.evi{color:var(--ink-3);font-size:13px;margin-top:2px}
+.who{color:var(--accent);font-weight:600}
+.summary-text{white-space:pre-wrap;margin:0}
+.pullquote{font-size:16px;font-style:italic;color:var(--ink-2);border-left:3px solid var(--accent);
+  padding-left:14px;margin:0}
+.not-raised{color:var(--ink-3);font-style:italic;margin:0}
+details.transcript summary{cursor:pointer;color:var(--ink-2);font-size:13px;padding:4px 0}
+details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--ink-2);
+  max-height:400px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px;margin-top:10px}
+.genwait{display:flex;align-items:center;gap:10px;color:var(--ink-3);padding:30px 0}
+.spinner{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.errpanel{background:var(--crit-bg);color:var(--crit-ink);border-radius:12px;padding:16px 20px;margin-bottom:16px}
+.errpanel .code{font-size:12px;opacity:.8;margin-top:4px}
+.warnpanel{background:var(--warn-bg);color:var(--warn-ink);border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:13.5px}
+
+.modgrid{display:grid;gap:12px}
+.modrow{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.modrow .modname{font-weight:600}
+.modrow .modcount{color:var(--ink-3);font-size:13px}
+.modrow .modright{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.chip{display:inline-block;background:var(--bg);border:1px solid var(--line);color:var(--ink-2);
+  font-size:12px;padding:3px 10px;border-radius:999px;text-decoration:none;margin:2px 4px 2px 0}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+
+.prioritycols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:800px){.prioritycols{grid-template-columns:1fr}}
+.pcol{border-radius:12px;padding:16px}
+.pcol.now{background:var(--now-bg);color:var(--now-ink)}
+.pcol.later{background:var(--later-bg);color:var(--later-ink)}
+.pcol.future{background:var(--future-bg);color:var(--future-ink)}
+.pcol h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.pitem{background:rgba(255,255,255,.35);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+:root[data-theme="dark"] .pitem{background:rgba(0,0,0,.2)}
+.pitem:last-child{margin-bottom:0}
+.pitem .rationale{font-size:12.5px;opacity:.85;margin-top:4px}
+</style>
+<script>
+/* stored theme is applied before first paint, so a dark-mode reader never sees a white flash */
+try{var _t=localStorage.getItem('pds-theme');
+  if(_t==='dark'||_t==='light')document.documentElement.dataset.theme=_t;}catch(e){}
+</script>
+</head>
+<body>
+
+<div class="boot" id="boot">Checking your session…</div>
+
+<div class="gate" id="gate" hidden>
+  <form class="gate-box" id="gateform" autocomplete="on">
+    <div class="gate-brand">Firefish<span>Product Discovery Sessions</span></div>
+    <h1>Sign in</h1>
+    <p class="gate-lede">This tool is internal to Firefish. Access is by shared password.</p>
+    <label for="pw">Password</label>
+    <input id="pw" name="password" type="password" autocomplete="current-password"
+      autocapitalize="off" spellcheck="false" required>
+    <button type="submit" id="gatego">Sign in</button>
+    <p class="gate-err" id="gateerr" role="alert" hidden></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+<header class="top">
+  <div class="wrap hrow">
+    <div class="brand">Product Discovery Sessions<span>Firefish, internal</span></div>
+    <div class="hactions">
+      <a href="#sessions" class="tbtn" id="nav-sessions">Sessions</a>
+      <a href="#modules" class="tbtn" id="nav-modules">Modules</a>
+      <span id="storagewarn" class="tbtn" style="display:none;border-color:var(--crit-ink);color:var(--crit-ink)" title="No storage linked — nothing will save">Storage not linked</span>
+      <button class="tbtn" id="theme">Dark</button>
+      <button class="tbtn" id="signout">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="view-list">
+    <h2 class="ph">Discovery sessions</h2>
+    <p class="sub">Log a product-discovery call and get back structured answers to the program's 11
+      standard questions — grounded only in what the customer actually said.</p>
+    <div class="dashhead">
+      <div class="dashfilters">
+        <input type="search" class="filterin" id="filterin" placeholder="Filter by customer or interviewer…">
+        <select class="sel" id="modulefilter"><option value="">All modules</option></select>
+      </div>
+      <button type="button" class="btn" id="newbtn">+ New session</button>
+    </div>
+    <div id="tablewrap"></div>
+  </section>
+
+  <section id="view-form" hidden>
+    <a href="#sessions" class="backlink">&larr; All sessions</a>
+    <h2 class="ph">New discovery session</h2>
+    <form class="sessform" id="sessform">
+      <div class="row">
+        <div class="field">
+          <label for="f-customerName">Client</label>
+          <select id="f-customerName" name="customerName" required></select>
+          <div class="addclient" id="addclientrow" hidden>
+            <input type="text" id="newclientname" maxlength="200" placeholder="New client name">
+            <button type="button" class="btn small" id="addclientbtn">Add</button>
+            <button type="button" class="btn ghost small" id="addclientcancel">Cancel</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-interviewer">Interviewer</label>
+          <input type="text" id="f-interviewer" name="interviewer" maxlength="200" required>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="f-module">Module</label>
+          <select id="f-module" name="module" required>
+            <option value="" disabled selected>— Select module —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-sessionDate">Session date</label>
+          <input type="date" id="f-sessionDate" name="sessionDate" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-participants">Participants (optional)</label>
+        <input type="text" id="f-participants" name="participants" maxlength="500"
+          placeholder="e.g. Jane Doe (Head of Talent), Sam (Recruiter) — Firefish: Alex">
+      </div>
+      <div class="field">
+        <label for="f-transcriptfile">Transcript</label>
+        <input type="file" id="f-transcriptfile" accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        <textarea id="f-transcript" name="transcript" placeholder="Paste the transcript, or choose a .txt or .docx file above"></textarea>
+        <span class="hint" id="translen"></span>
+      </div>
+      <div class="err-box" id="formerr" hidden></div>
+      <div class="formfoot">
+        <button type="submit" class="btn" id="formsubmit">Create and analyze</button>
+        <button type="button" class="btn ghost" id="formcancel">Cancel</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="view-detail" hidden>
+    <a href="#sessions" class="backlink">&larr; All sessions</a>
+    <div id="detailbody"></div>
+  </section>
+
+  <section id="view-modules" hidden>
+    <h2 class="ph">Modules</h2>
+    <p class="sub">Every module's session count and trend status. Build or refresh a trend once a
+      module has at least one analyzed session — more valuable with several.</p>
+    <div id="moduleswrap" class="modgrid"></div>
+  </section>
+
+  <section id="view-module-detail" hidden>
+    <a href="#modules" class="backlink">&larr; All modules</a>
+    <div id="moduledetailbody"></div>
+  </section>
+
+</main>
+</div><!-- /#app -->
+
+<script>
+/* ============================================================================
+   Boot. Session data is not in this file — it is fetched from /api/sessions*,
+   which only answers a request carrying a valid session cookie.
+   ========================================================================= */
+
+const boot=document.getElementById('boot'),
+      gate=document.getElementById('gate'),
+      appEl=document.getElementById('app'),
+      gateForm=document.getElementById('gateform'),
+      gateErr=document.getElementById('gateerr'),
+      gateGo=document.getElementById('gatego'),
+      pwInput=document.getElementById('pw');
+
+function showGate(message){
+  boot.hidden=true; appEl.hidden=true; gate.hidden=false;
+  if(message){ gateErr.textContent=message; gateErr.hidden=false; }
+  pwInput.focus();
+}
+
+async function api(path,options){
+  const res=await fetch(path,Object.assign({
+    credentials:'same-origin',
+    headers:{'Content-Type':'application/json'}
+  },options||{}));
+  let body=null;
+  try{ body=await res.json(); }catch(e){ /* non-JSON error page */ }
+  return {ok:res.ok,status:res.status,body:body||{}};
+}
+
+let started=false;
+async function loadAndStart(){
+  const res=await api('/api/session');
+  if(!res.ok || !res.body.signedIn){ showGate(); return false; }
+  if(started) return true;
+  started=true;
+  gate.hidden=true; boot.hidden=true; appEl.hidden=false;
+  bootApp(res.body.storage);
+  return true;
+}
+
+gateForm.addEventListener('submit',async function(e){
+  e.preventDefault();
+  gateErr.hidden=true;
+  gateGo.disabled=true; gateGo.textContent='Signing in…';
+  try{
+    const res=await api('/api/login',{method:'POST',body:JSON.stringify({password:pwInput.value})});
+    if(!res.ok){
+      gateErr.textContent=res.body.error||'Sign-in failed.';
+      gateErr.hidden=false;
+      pwInput.select();
+      return;
+    }
+    pwInput.value='';
+    await loadAndStart();
+  }catch(err){
+    gateErr.textContent='Could not reach the server. Check your connection and try again.';
+    gateErr.hidden=false;
+  }finally{
+    gateGo.disabled=false; gateGo.textContent='Sign in';
+  }
+});
+
+(async function(){
+  try{
+    const res=await api('/api/session');
+    if(res.ok&&res.body.signedIn){ await loadAndStart(); return; }
+  }catch(e){}
+  showGate();
+})();
+
+/* ============================================================================
+   App
+   ========================================================================= */
+
+/* Must match lib/modules.js exactly — see that file's header for why this
+   list is duplicated client-side rather than fetched. */
+const MODULES=[
+  {id:'business-development-marketing',label:'Business Development & Marketing'},
+  {id:'search-match',label:'Search & Match'},
+  {id:'conversations',label:'Conversations'},
+  {id:'job-workflows',label:'Job Workflows'},
+  {id:'analytics-reporting',label:'Analytics & Reporting'},
+  {id:'portals',label:'Portals'},
+  {id:'pay-bill',label:'Pay & Bill'},
+  {id:'ai-automation',label:'Agents / AI & Automation'},
+  {id:'multiposting',label:'Multiposting'},
+  {id:'websites',label:'Websites'}
+];
+function moduleLabel(id){ const m=MODULES.find(function(x){return x.id===id}); return m?m.label:id; }
+
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function fmtDate(s){
+  if(!s) return '—';
+  try{ return new Date(s+'T00:00:00').toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); }
+  catch(e){ return s; }
+}
+function fmtDateTime(s){
+  if(!s) return '—';
+  try{ return new Date(s).toLocaleString(); }catch(e){ return s; }
+}
+function badgeLabel(status){
+  return status==='ready'?'Ready':status==='error'?'Error':'Draft';
+}
+function listOrEmpty(arr,render){
+  if(!arr || !arr.length) return '<p class="sub" style="margin:0">Nothing raised in this call.</p>';
+  return '<ul>'+arr.map(render).join('')+'</ul>';
+}
+
+function bootApp(storageConfigured){
+  let INDEX=[];
+  let filterText='';
+  let filterModule='';
+
+  /* ---- theme ---- */
+  const themeBtn=document.getElementById('theme');
+  function currentTheme(){
+    const stored=document.documentElement.dataset.theme;
+    if(stored==='dark'||stored==='light') return stored;
+    return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+  }
+  function paintThemeBtn(){ themeBtn.textContent = currentTheme()==='dark' ? 'Light' : 'Dark'; }
+  themeBtn.addEventListener('click',function(){
+    const to = currentTheme()==='dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme=to;
+    try{localStorage.setItem('pds-theme',to)}catch(e){}
+    paintThemeBtn();
+  });
+  paintThemeBtn();
+
+  document.getElementById('signout').addEventListener('click',async function(){
+    await api('/api/logout',{method:'POST'});
+    location.reload();
+  });
+
+  if(!storageConfigured){
+    document.getElementById('storagewarn').style.display='inline-block';
+  }
+
+  /* populate every module <select>/<option> list that never changes at runtime */
+  const moduleFilterSel=document.getElementById('modulefilter');
+  const formModuleSel=document.getElementById('f-module');
+  MODULES.forEach(function(m){
+    moduleFilterSel.insertAdjacentHTML('beforeend','<option value="'+esc(m.id)+'">'+esc(m.label)+'</option>');
+    formModuleSel.insertAdjacentHTML('beforeend','<option value="'+esc(m.id)+'">'+esc(m.label)+'</option>');
+  });
+
+  /* ---- views ---- */
+  const views={
+    list:document.getElementById('view-list'),
+    form:document.getElementById('view-form'),
+    detail:document.getElementById('view-detail'),
+    modules:document.getElementById('view-modules'),
+    moduledetail:document.getElementById('view-module-detail')
+  };
+  function showView(name){
+    Object.keys(views).forEach(function(k){ views[k].hidden = k!==name; });
+    document.getElementById('nav-sessions').classList.toggle('active', name==='list'||name==='form'||name==='detail');
+    document.getElementById('nav-modules').classList.toggle('active', name==='modules'||name==='moduledetail');
+  }
+
+  async function go(){
+    const hash=location.hash.slice(1); // '', 'sessions', 'sessions/new', 'sessions/<id>', 'modules', 'modules/<slug>'
+    const parts=hash.split('/').filter(Boolean);
+    if(parts[0]==='modules'){
+      if(parts[1]){ showView('moduledetail'); await openModuleDetail(parts[1]); }
+      else{ showView('modules'); await loadModules(); }
+    }else if(parts[1]==='new'){
+      showView('form');
+      await resetForm();
+    }else if(parts[1]){
+      showView('detail');
+      await openDetail(parts[1]);
+    }else{
+      showView('list');
+      await loadIndex();
+    }
+  }
+  addEventListener('hashchange',go);
+
+  /* ---- dashboard ---- */
+  async function loadIndex(){
+    document.getElementById('tablewrap').innerHTML='<p class="sub">Loading…</p>';
+    const res=await api('/api/sessions');
+    if(!res.ok){
+      document.getElementById('tablewrap').innerHTML='<div class="err-box">'+esc(res.body.error||'Could not load sessions.')+'</div>';
+      return;
+    }
+    INDEX=res.body.items||[];
+    renderTable();
+  }
+  function renderTable(){
+    const wrap=document.getElementById('tablewrap');
+    const q=filterText.trim().toLowerCase();
+    const rows=INDEX.filter(function(s){
+      if(filterModule && s.module!==filterModule) return false;
+      if(!q) return true;
+      return (s.customerName||'').toLowerCase().includes(q) || (s.interviewer||'').toLowerCase().includes(q);
+    });
+    if(!rows.length){
+      wrap.innerHTML='<div class="empty">'+(INDEX.length?'No sessions match that filter.':'No sessions logged yet. Click "+ New session" to add the first one.')+'</div>';
+      return;
+    }
+    wrap.innerHTML='<table class="datatable"><thead><tr>'+
+      '<th>Customer</th><th>Module</th><th>Interviewer</th><th>Session date</th><th>Status</th><th>Updated</th>'+
+      '</tr></thead><tbody>'+
+      rows.map(function(s){
+        return '<tr class="clickable" data-id="'+esc(s.id)+'">'+
+          '<td>'+esc(s.customerName)+'</td>'+
+          '<td>'+esc(moduleLabel(s.module))+'</td>'+
+          '<td>'+esc(s.interviewer)+'</td>'+
+          '<td>'+esc(fmtDate(s.sessionDate))+'</td>'+
+          '<td><span class="badge '+esc(s.status)+'">'+esc(badgeLabel(s.status))+'</span></td>'+
+          '<td>'+esc(fmtDateTime(s.updatedAt))+'</td>'+
+          '</tr>';
+      }).join('')+
+      '</tbody></table>';
+    wrap.querySelectorAll('tr[data-id]').forEach(function(tr){
+      tr.addEventListener('click',function(){ location.hash='#sessions/'+tr.dataset.id; });
+    });
+  }
+  document.getElementById('filterin').addEventListener('input',function(e){
+    filterText=e.target.value; renderTable();
+  });
+  document.getElementById('modulefilter').addEventListener('change',function(e){
+    filterModule=e.target.value; renderTable();
+  });
+  document.getElementById('newbtn').addEventListener('click',function(){
+    location.hash='#sessions/new';
+  });
+
+  /* ---- new-session form ---- */
+  const sessForm=document.getElementById('sessform'),
+        formErr=document.getElementById('formerr'),
+        transcriptTa=document.getElementById('f-transcript'),
+        transcriptFile=document.getElementById('f-transcriptfile'),
+        translen=document.getElementById('translen'),
+        formSubmit=document.getElementById('formsubmit'),
+        clientSel=document.getElementById('f-customerName'),
+        addClientRow=document.getElementById('addclientrow'),
+        newClientName=document.getElementById('newclientname');
+  const TRANSCRIPT_MAX=150000;
+  const ADD_CLIENT_VALUE='__add_new__';
+
+  async function loadClientsInto(selectedValue){
+    const res=await api('/api/clients');
+    const items=res.ok?(res.body.items||[]):[];
+    clientSel.innerHTML='<option value="" disabled'+(selectedValue?'':' selected')+'>— Select client —</option>'+
+      items.map(function(c){ return '<option value="'+esc(c)+'"'+(c===selectedValue?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+
+      '<option value="'+ADD_CLIENT_VALUE+'">+ Add new client…</option>';
+  }
+  clientSel.addEventListener('change',function(){
+    if(clientSel.value===ADD_CLIENT_VALUE){
+      addClientRow.hidden=false;
+      newClientName.focus();
+      clientSel.value='';
+    }
+  });
+  document.getElementById('addclientcancel').addEventListener('click',function(){
+    addClientRow.hidden=true; newClientName.value='';
+  });
+  document.getElementById('addclientbtn').addEventListener('click',async function(){
+    const name=newClientName.value.trim();
+    if(!name) return;
+    const res=await api('/api/clients',{method:'POST',body:JSON.stringify({action:'create',name:name})});
+    if(!res.ok){ formErr.textContent=res.body.error||'Could not add that client.'; formErr.hidden=false; return; }
+    await loadClientsInto(name);
+    addClientRow.hidden=true; newClientName.value='';
+  });
+
+  async function resetForm(){
+    sessForm.reset();
+    formErr.hidden=true; formErr.textContent='';
+    addClientRow.hidden=true; newClientName.value='';
+    formModuleSel.value='';
+    updateLen();
+    await loadClientsInto('');
+  }
+  function updateLen(){
+    const n=transcriptTa.value.length;
+    translen.textContent=n.toLocaleString()+' / '+TRANSCRIPT_MAX.toLocaleString()+' characters';
+    translen.className='hint'+(n>TRANSCRIPT_MAX?' over':'');
+  }
+  transcriptTa.addEventListener('input',updateLen);
+
+  transcriptFile.addEventListener('change',async function(){
+    const file=transcriptFile.files[0];
+    if(!file) return;
+    formErr.hidden=true;
+    try{
+      if(/\.docx$/i.test(file.name) || file.type.indexOf('wordprocessingml')>=0){
+        const buf=await file.arrayBuffer();
+        const b64=btoa(new Uint8Array(buf).reduce(function(s,b){return s+String.fromCharCode(b)},''));
+        const res=await api('/api/parse-transcript',{method:'POST',body:JSON.stringify({fileBase64:b64})});
+        if(!res.ok){ formErr.textContent=res.body.error||'Could not read that file.'; formErr.hidden=false; return; }
+        transcriptTa.value=res.body.text;
+      }else{
+        transcriptTa.value=await file.text();
+      }
+      updateLen();
+    }catch(err){
+      formErr.textContent='Could not read that file.'; formErr.hidden=false;
+    }
+  });
+
+  document.getElementById('formcancel').addEventListener('click',function(){ location.hash='#sessions'; });
+
+  sessForm.addEventListener('submit',async function(e){
+    e.preventDefault();
+    formErr.hidden=true;
+    formSubmit.disabled=true; formSubmit.textContent='Creating…';
+    try{
+      const payload={
+        customerName:clientSel.value,
+        interviewer:document.getElementById('f-interviewer').value,
+        module:formModuleSel.value,
+        sessionDate:document.getElementById('f-sessionDate').value,
+        participants:document.getElementById('f-participants').value,
+        transcript:transcriptTa.value
+      };
+      if(!payload.customerName || payload.customerName===ADD_CLIENT_VALUE){
+        formErr.textContent='Select a client, or add a new one.'; formErr.hidden=false; return;
+      }
+      if(!payload.module){
+        formErr.textContent='Select a module.'; formErr.hidden=false; return;
+      }
+      const res=await api('/api/sessions',{method:'POST',body:JSON.stringify(Object.assign({action:'create'},payload))});
+      if(!res.ok){ formErr.textContent=res.body.error||'Could not create the session.'; formErr.hidden=false; return; }
+      const id=res.body.item.id;
+      location.hash='#sessions/'+id;
+      /* fire-and-forget the first analysis, so the detail view opens straight
+         into its loading state rather than requiring a second click */
+      api('/api/sessions-analyze',{method:'POST',body:JSON.stringify({id:id})}).then(function(){
+        if(location.hash==='#sessions/'+id) openDetail(id);
+      });
+    }catch(err){
+      formErr.textContent='Could not reach the server.'; formErr.hidden=false;
+    }finally{
+      formSubmit.disabled=false; formSubmit.textContent='Create and analyze';
+    }
+  });
+
+  /* ---- session detail view ---- */
+  async function openDetail(id){
+    const body=document.getElementById('detailbody');
+    body.innerHTML='<p class="sub">Loading…</p>';
+    const res=await api('/api/sessions?id='+encodeURIComponent(id));
+    if(!res.ok){
+      body.innerHTML='<div class="err-box">'+esc(res.body.error||'Could not load that session.')+'</div>';
+      return;
+    }
+    renderDetail(res.body.item);
+  }
+
+  function verdictLabel(v){
+    return {better:'Better than v1',worse:'Worse than v1',different:'Different from v1',
+      mixed:'Mixed vs v1',not_discussed:'Not compared to v1'}[v] || v;
+  }
+
+  function renderDetail(item){
+    const body=document.getElementById('detailbody');
+    const a=item.analysis;
+
+    let errBlock='';
+    if(item.status==='error' && item.lastError){
+      errBlock='<div class="errpanel">Analysis failed: '+esc(item.lastError)+
+        (item.lastErrorAt?'<div class="code">'+esc(fmtDateTime(item.lastErrorAt))+'</div>':'')+'</div>';
+    }
+
+    let analysisBlock;
+    if(item.status==='draft' && !a){
+      analysisBlock='<div class="genwait"><span class="spinner"></span>Generating the analysis… this can take a minute or two for a full transcript.</div>';
+    }else if(!a){
+      analysisBlock='<p class="sub">No analysis yet. Click Generate to run it.</p>';
+    }else{
+      const notRaised='<p class="not-raised">Not raised in this call.</p>';
+      analysisBlock=
+        '<div class="panel"><h3>Summary</h3><p class="summary-text">'+esc(a.overall_summary||'—')+'</p></div>'+
+
+        '<div class="panel"><h3>Q1 — How it works today, and where it breaks down</h3>'+
+          '<p class="summary-text">'+esc(a.today_process.summary||'—')+'</p>'+
+          listOrEmpty(a.today_process.breakdown_points,function(p){
+            return '<li>'+esc(p.point)+'<div class="evi">'+esc(p.evidence)+'</div></li>';
+          })+
+        '</div>'+
+
+        '<div class="panel"><h3>Q2 — Value created</h3>'+listOrEmpty(a.value_created.statements,function(v){
+          return '<li>'+esc(v.value)+'<div class="evi">'+esc(v.evidence)+'</div></li>';
+        })+'</div>'+
+
+        '<div class="panel"><h3>Q3 — Who benefits, who doesn\'t</h3>'+
+          '<p class="hint" style="margin:0 0 6px">Benefits most</p>'+
+          listOrEmpty(a.user_impact.benefits_most,function(u){
+            return '<li>'+esc(u.user_group)+'<div class="evi">'+esc(u.evidence)+'</div></li>';
+          })+
+          '<p class="hint" style="margin:12px 0 6px">Little or negative value</p>'+
+          listOrEmpty(a.user_impact.limited_or_negative_value,function(u){
+            return '<li>'+esc(u.user_group)+'<div class="evi">'+esc(u.evidence)+'</div></li>';
+          })+
+        '</div>'+
+
+        '<div class="panel"><h3>Q4 — Adoption blockers</h3>'+listOrEmpty(a.adoption_blockers,function(b){
+          return '<li>'+esc(b.blocker)+'<div class="evi">'+esc(b.evidence)+'</div></li>';
+        })+'</div>'+
+
+        '<div class="panel"><h3>Q5 — Compared to v1</h3>'+
+          '<p><span class="badge draft">'+esc(verdictLabel(a.v1_comparison.verdict))+'</span></p>'+
+          (a.v1_comparison.explanation?'<p class="summary-text">'+esc(a.v1_comparison.explanation)+'</p>':notRaised)+
+        '</div>'+
+
+        '<div class="panel"><h3>Q6 — Unclear, incomplete, or hard to trust</h3>'+listOrEmpty(a.trust_concerns,function(c){
+          return '<li>'+esc(c.concern)+'<div class="evi">'+esc(c.evidence)+'</div></li>';
+        })+'</div>'+
+
+        '<div class="panel"><h3>Q7 — Business-critical gaps blocking migration</h3>'+listOrEmpty(a.migration_blockers,function(m){
+          return '<li>'+esc(m.item)+'<div class="evi">'+esc(m.evidence)+'</div></li>';
+        })+'</div>'+
+
+        '<div class="panel"><h3>Q8 — What would need to be true to migrate</h3>'+listOrEmpty(a.migration_conditions,function(c){
+          return '<li>'+esc(c.condition)+'<div class="evi">'+esc(c.evidence)+'</div></li>';
+        })+'</div>'+
+
+        '<div class="panel"><h3>Q9 — Top priority improvement</h3>'+
+          (a.top_priority_improvement.mentioned
+            ? '<p class="summary-text"><b>'+esc(a.top_priority_improvement.improvement)+'</b> — '+esc(a.top_priority_improvement.reason)+'</p>'
+            : notRaised)+
+        '</div>'+
+
+        '<div class="panel"><h3>Q10 — Measurable success metric</h3>'+
+          (a.success_metric.mentioned
+            ? '<p class="summary-text">'+esc(a.success_metric.metric)+'<div class="evi">'+esc(a.success_metric.evidence)+'</div></p>'
+            : notRaised)+
+        '</div>'+
+
+        '<div class="panel"><h3>Q11 — One-sentence pitch to a colleague</h3>'+
+          (a.one_sentence_pitch.mentioned
+            ? '<p class="pullquote">“'+esc(a.one_sentence_pitch.text)+'”</p>'
+            : notRaised)+
+        '</div>';
+    }
+
+    body.innerHTML=
+      '<div class="dhead">'+
+        '<div class="dmeta">'+
+          '<h2>'+esc(item.customerName)+'</h2>'+
+          '<div class="subline">'+esc(moduleLabel(item.module))+' &middot; Interviewer: '+esc(item.interviewer)+
+            (item.participants?' &middot; Participants: '+esc(item.participants):'')+
+            ' &middot; '+esc(fmtDate(item.sessionDate))+
+            ' &middot; <span class="badge '+esc(item.status)+'">'+esc(badgeLabel(item.status))+'</span></div>'+
+        '</div>'+
+        '<div class="dactions">'+
+          '<button type="button" class="btn" id="regenbtn">'+(a?'Regenerate':'Generate')+' analysis</button>'+
+          '<button type="button" class="btn danger" id="delbtn">Delete</button>'+
+        '</div>'+
+      '</div>'+
+      errBlock+
+      analysisBlock+
+      '<details class="transcript"><summary>Raw transcript</summary><pre>'+esc(item.transcript)+'</pre></details>';
+
+    document.getElementById('regenbtn').addEventListener('click',async function(){
+      const btn=this;
+      btn.disabled=true; btn.textContent='Generating…';
+      const res=await api('/api/sessions-analyze',{method:'POST',body:JSON.stringify({id:item.id})});
+      if(res.body && res.body.item){ renderDetail(res.body.item); }
+      else{ await openDetail(item.id); }
+    });
+    document.getElementById('delbtn').addEventListener('click',async function(){
+      if(!confirm('Delete this session and its transcript? This cannot be undone.')) return;
+      await api('/api/sessions',{method:'POST',body:JSON.stringify({action:'delete',id:item.id})});
+      location.hash='#sessions';
+    });
+  }
+
+  /* ---- modules overview ---- */
+  function staleness(trend, readyIds){
+    if(!trend || trend.status!=='ready' && !trend.builtAt) return {label:'Not built yet',cls:'notbuilt'};
+    const built=trend.builtFromSessionIds||[];
+    const added=readyIds.filter(function(id){ return built.indexOf(id)<0; });
+    const removed=built.filter(function(id){ return readyIds.indexOf(id)<0; });
+    if(!added.length && !removed.length) return {label:'Up to date',cls:'uptodate'};
+    const bits=[];
+    if(added.length) bits.push(added.length+' new session'+(added.length===1?'':'s'));
+    if(removed.length) bits.push(removed.length+' removed/reassigned');
+    return {label:bits.join(', ')+' since last build',cls:'stale'};
+  }
+
+  async function loadModules(){
+    const wrap=document.getElementById('moduleswrap');
+    wrap.innerHTML='<p class="sub">Loading…</p>';
+    const [sessionsRes,trendsRes]=await Promise.all([api('/api/sessions'),api('/api/module-trends')]);
+    if(!sessionsRes.ok){ wrap.innerHTML='<div class="err-box">'+esc(sessionsRes.body.error||'Could not load sessions.')+'</div>'; return; }
+    const index=sessionsRes.body.items||[];
+    const trends=(trendsRes.ok && trendsRes.body.trends) || {};
+
+    wrap.innerHTML=MODULES.map(function(m){
+      const all=index.filter(function(s){ return s.module===m.id; });
+      const ready=all.filter(function(s){ return s.status==='ready'; });
+      const readyIds=ready.map(function(s){ return s.id; });
+      const trend=trends[m.id];
+      const st=staleness(trend,readyIds);
+      const canBuild=ready.length>0;
+      const btnLabel=trend&&trend.builtAt ? 'Refresh trend' : 'Build trend';
+      return '<div class="modrow" data-module="'+esc(m.id)+'">'+
+        '<div><div class="modname">'+esc(m.label)+'</div>'+
+          '<div class="modcount">'+ready.length+' analyzed / '+all.length+' total session'+(all.length===1?'':'s')+'</div></div>'+
+        '<div class="modright">'+
+          '<span class="badge '+st.cls+'">'+esc(st.label)+'</span>'+
+          '<button type="button" class="btn small buildbtn" data-module="'+esc(m.id)+'"'+(canBuild?'':' disabled title="Analyze at least one session for this module first"')+'>'+btnLabel+'</button>'+
+          '<a href="#modules/'+esc(m.id)+'" class="btn ghost small">View</a>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+
+    wrap.querySelectorAll('.buildbtn').forEach(function(btn){
+      btn.addEventListener('click',async function(e){
+        e.preventDefault();
+        const moduleId=btn.dataset.module;
+        btn.disabled=true; btn.textContent='Building…';
+        const res=await api('/api/module-trends-build',{method:'POST',body:JSON.stringify({module:moduleId})});
+        if(!res.ok){ alert(res.body.error||'Could not build the trend.'); }
+        location.hash='#modules/'+moduleId;
+      });
+    });
+  }
+
+  /* ---- per-module trend detail ---- */
+  async function openModuleDetail(moduleId){
+    const body=document.getElementById('moduledetailbody');
+    body.innerHTML='<p class="sub">Loading…</p>';
+    const [trendRes,sessionsRes]=await Promise.all([
+      api('/api/module-trends?module='+encodeURIComponent(moduleId)),
+      api('/api/sessions')
+    ]);
+    if(!trendRes.ok){
+      body.innerHTML='<div class="err-box">'+esc(trendRes.body.error||'Could not load that trend.')+'</div>';
+      return;
+    }
+    const index=(sessionsRes.ok && sessionsRes.body.items) || [];
+    renderModuleDetail(moduleId, trendRes.body.item, index);
+  }
+
+  function sessionChip(id, index){
+    const s=index.find(function(x){ return x.id===id; });
+    const label=s ? esc(s.customerName)+' — '+esc(fmtDate(s.sessionDate)) : id;
+    return '<a class="chip" href="#sessions/'+esc(id)+'">'+label+'</a>';
+  }
+  function chips(ids, index){
+    if(!ids || !ids.length) return '';
+    return '<div style="margin-top:6px">'+ids.map(function(id){ return sessionChip(id,index); }).join('')+'</div>';
+  }
+
+  function renderModuleDetail(moduleId, trend, index){
+    const body=document.getElementById('moduledetailbody');
+    const label=moduleLabel(moduleId);
+    const readyIds=index.filter(function(s){ return s.module===moduleId && s.status==='ready'; }).map(function(s){ return s.id; });
+    const st=staleness(trend, readyIds);
+
+    let errBlock='';
+    if(trend && trend.status==='error' && trend.lastError){
+      errBlock='<div class="errpanel">Trend build failed: '+esc(trend.lastError)+
+        (trend.lastErrorAt?'<div class="code">'+esc(fmtDateTime(trend.lastErrorAt))+'</div>':'')+'</div>';
+    }
+
+    let content;
+    if(!trend || !trend.result){
+      content='<div class="empty">Not built yet — go to <a href="#modules">Modules</a> and click Build trend for '+esc(label)+'.</div>';
+    }else{
+      const r=trend.result;
+      const warn=trend.sessionCountAtBuild<3
+        ? '<div class="warnpanel">Built from only '+trend.sessionCountAtBuild+' session'+(trend.sessionCountAtBuild===1?'':'s')+' — treat this as an early signal, not a settled trend.</div>'
+        : '';
+      function prioCol(key,title){
+        const items=r.feature_prioritization[key]||[];
+        return '<div class="pcol '+key+'"><h4>'+title+'</h4>'+
+          (items.length ? items.map(function(it){
+            return '<div class="pitem"><div>'+esc(it.item)+'</div><div class="rationale">'+esc(it.rationale)+'</div>'+chips(it.supporting_session_ids,index)+'</div>';
+          }).join('') : '<p class="rationale">Nothing here yet.</p>')+
+        '</div>';
+      }
+      content=warn+
+        '<div class="panel"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
+        '<div class="panel"><h3>Feature prioritization</h3><div class="prioritycols">'+
+          prioCol('now','Now')+prioCol('later','Later')+prioCol('future','Future')+
+        '</div></div>'+
+        '<div class="panel"><h3>Adoption blockers</h3>'+listOrEmpty(r.adoption_blockers,function(b){
+          return '<li>'+esc(b.blocker)+'<div class="evi">'+esc(b.impact)+'</div>'+chips(b.supporting_session_ids,index)+'</li>';
+        })+'</div>'+
+        '<div class="panel"><h3>Go-to-market messaging</h3>'+
+          '<p class="summary-text">'+esc(r.gtm_messaging.positioning_statement)+'</p>'+
+          (r.gtm_messaging.value_pillars.length ? '<ul>'+r.gtm_messaging.value_pillars.map(function(p){
+            return '<li><b>'+esc(p.pillar)+'</b><div class="evi">'+esc(p.evidence_theme)+'</div></li>';
+          }).join('')+'</ul>' : '')+
+          (r.gtm_messaging.draft_messages.length ? '<ul>'+r.gtm_messaging.draft_messages.map(function(m){
+            return '<li><span class="who">'+esc(m.audience)+':</span> '+esc(m.message)+'</li>';
+          }).join('')+'</ul>' : '')+
+        '</div>';
+    }
+
+    body.innerHTML=
+      '<div class="dhead">'+
+        '<div class="dmeta"><h2>'+esc(label)+'</h2>'+
+          '<div class="subline"><span class="badge '+st.cls+'">'+esc(st.label)+'</span>'+
+          (trend&&trend.builtAt?' &middot; Last built '+esc(fmtDateTime(trend.builtAt))+' from '+trend.sessionCountAtBuild+' session'+(trend.sessionCountAtBuild===1?'':'s'):'')+
+          '</div></div>'+
+        '<div class="dactions"><button type="button" class="btn" id="refreshtrendbtn"'+(readyIds.length?'':' disabled')+'>'+
+          (trend&&trend.builtAt?'Refresh trend':'Build trend')+'</button></div>'+
+      '</div>'+
+      errBlock+content;
+
+    const refreshBtn=document.getElementById('refreshtrendbtn');
+    if(refreshBtn) refreshBtn.addEventListener('click',async function(){
+      refreshBtn.disabled=true; refreshBtn.textContent='Building…';
+      const res=await api('/api/module-trends-build',{method:'POST',body:JSON.stringify({module:moduleId})});
+      if(!res.ok){ alert(res.body.error||'Could not build the trend.'); }
+      await openModuleDetail(moduleId);
+    });
+  }
+
+  go();
+}
+</script>
+</body>
+</html>

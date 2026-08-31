@@ -1,0 +1,12 @@
+{
+  "name": "firefish-product-discovery-sessions",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Internal product-discovery-session logger. Static shell plus authenticated serverless API. One runtime dependency (mammoth, for .docx transcript uploads); everything else is plain fetch.",
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "mammoth": "^1.12.1"
+  }
+}
