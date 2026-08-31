@@ -1,5 +1,6 @@
 'use strict';
 
+const auth = require('../lib/auth');
 const store = require('../lib/store');
 
 /*
@@ -15,6 +16,9 @@ module.exports = async function handler(req, res) {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed.' });
   }
+
+  const session = auth.requireSession(req, res);
+  if (!session) return undefined;
 
   const item = await store.readGtm();
   return res.status(200).json({ item: item });

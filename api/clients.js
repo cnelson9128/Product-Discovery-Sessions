@@ -1,5 +1,6 @@
 'use strict';
 
+const auth = require('../lib/auth');
 const store = require('../lib/store');
 
 const NAME_MAX = 200;
@@ -19,11 +20,17 @@ module.exports = async function handler(req, res) {
 };
 
 async function handleGet(req, res) {
+  const session = auth.requireSession(req, res);
+  if (!session) return undefined;
+
   const items = await store.readClients();
   return res.status(200).json({ items: items.slice().sort(function (a, b) { return a.localeCompare(b); }) });
 }
 
 async function handlePost(req, res) {
+  const session = auth.requireSession(req, res);
+  if (!session) return undefined;
+
   if (!store.configured()) {
     return res.status(503).json({
       error: 'No Redis store is linked, so clients cannot be saved. Add an Upstash Redis ' +

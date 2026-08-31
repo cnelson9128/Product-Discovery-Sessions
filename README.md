@@ -1,8 +1,9 @@
 # Firefish Product Discovery Sessions — internal hosting
 
 An internal tool on Vercel supporting Firefish's v2 product-discovery research program: roughly 10
-clients, ~100 sessions over 8-10 weeks, each session about one of 10 fixed product modules, each
-asking the same 11 standard validation questions (today's process, value created, who benefits,
+clients, ~100 sessions over 8-10 weeks, each session tagged to one of 11 fixed session types (10
+specific v2 product modules plus a general Introduction Session), each asking the same 11 standard
+validation questions (today's process, value created, who benefits,
 adoption blockers, v1 vs v2, trust concerns, migration blockers/conditions, top priority
 improvement, success metric, one-sentence pitch). Every session's transcript is analyzed into
 structured answers to those 11 questions, and once a module has multiple analyzed sessions its
@@ -20,49 +21,53 @@ serverless functions in `api/` that hold session data. No build step, and one ru
 
 ---
 
-## Access — there is none. Read this before you deploy.
+## Read this before you deploy
 
-**This app has no login, no password, and no session concept of any kind — this was a deliberate,
-explicit choice, not an oversight.** Every `/api/*` endpoint answers any request that reaches it, and
-`public/index.html` renders straight into the full app for anyone who loads it. There is no signed
-cookie, no shared password, nothing gating `/api/sessions`, `/api/clients`, or `/api/module-trends`.
+**This content is internal only.** Discovery-call transcripts name real customers or prospects and
+describe their pain points in their own words — treat this the same as any other customer data.
 
-**Discovery-call transcripts name real customers or prospects and describe their pain points, in
-their own words.** With no application-level access control, the only thing standing between that
-data and the public internet is whatever you put in front of it at the hosting layer — see below.
-Do not deploy this to a public URL without one of those in place, and do not point it at a custom
-domain you'd expect a search engine or a curious visitor to stumble onto (the `X-Robots-Tag` header
-and `robots.txt` discourage crawling, but neither restricts access).
+**The login is a real boundary, not a screen over the data.** No session data is in the HTML. It
+lives only in Redis, reachable exclusively through `/api/*` to a request carrying a valid signed
+session cookie. An anonymous visitor who views source finds the layout and nothing else.
 
-**You almost certainly want Vercel Deployment Protection**, since the app itself no longer provides
-any door at all:
+**One shared password, not per-user login.** This is a small trusted team (product managers/
+researchers) where everyone needs full access — anyone with the password can log a session, read
+every session, and build/refresh trends. There's no per-user identity, so there's also no audit
+trail of *who* created or edited a given session beyond a free-text "Interviewer" field and
+timestamps.
 
-| Option | Who gets in | Notes |
-|---|---|---|
-| **Vercel Authentication** | Anyone in your Vercel team | Requires each viewer to be a Vercel team member. |
-| **Password Protection** | Anyone with the shared password | Simplest to hand to a small external research team; paid-plan feature — check your plan. |
-| **Trusted IPs** | Only your office/VPN ranges | Tightest, but breaks home/mobile access. |
-
-Set this under the project's **Settings → Deployment Protection**, covering **Production** (the
-default only covers Preview deployments). If you'd rather re-add an in-app password gate instead —
-or alongside — the sibling `competitor-analysis` repo's `lib/auth.js`/`api/login.js` is a working
-reference for exactly that pattern.
+**Layering Vercel Deployment Protection on top is still worth doing.** This login protects the
+data; Deployment Protection would also stop an anonymous visitor reaching the sign-in page at all.
+They solve different halves and do not conflict — see **Settings → Deployment Protection**, covering
+**Production** (the default only covers Preview deployments).
 
 ---
 
 ## Set this up — the site will not work until you do
 
+The functions read three required environment variables. Without them every sign-in returns a 500
+and nobody gets in, including you.
+
 ### 1. Environment variables
 
-Vercel → the project → **Settings → Environment Variables**. Add this to **Production** (and
+Vercel → the project → **Settings → Environment Variables**. Add these to **Production** (and
 Preview, if you use preview deployments):
 
 | Name | Value |
 |---|---|
+| `SESSION_SECRET` | A random string of **32+ characters**. Anything shorter is rejected at runtime. |
+| `APP_PASSWORD` | The one shared password everyone on the team signs in with. |
+| `SESSION_TTL_HOURS` | *Optional.* How long a sign-in lasts. Defaults to 12, capped at 168. |
 | `ANTHROPIC_API_KEY` | Required to generate analysis. From [console.anthropic.com](https://console.anthropic.com). |
 
-That's the only one the code reads. Redis credentials (below) are also required for anything to
-save, but come from a Vercel integration rather than being typed in by hand.
+To generate `SESSION_SECRET`, run this anywhere with Node, or use any password manager's generator:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Rotating `APP_PASSWORD` takes effect on the next sign-in. Changing `SESSION_SECRET` immediately
+invalidates every existing session, which is the lever to pull if the password leaks.
 
 ### 2. Storage — Upstash Redis
 
@@ -98,14 +103,14 @@ worse outcome.
 
 ### 3. Check it after deploying
 
-Replace `<domain>`. Since there's no app-level auth, this only confirms the app itself is working —
-it does **not** confirm the data is private. Privacy comes entirely from whatever Deployment
-Protection (or other gate) you put in front of it — verify that separately, e.g. by opening the URL
-in an incognito window and confirming it actually challenges you.
+Replace `<domain>` and run these. The first two are the ones that matter.
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/sessions       # expect 200 (or 401/403 from your gate, if one is set up)
-curl -s https://<domain>/ | grep -ci "Product Discovery"                     # expect 1+ — confirms the app itself loaded
+curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/sessions       # expect 401
+curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/clients        # expect 401
+curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/module-trends  # expect 401
+curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/gtm-messaging  # expect 401
+curl -s https://<domain>/ | grep -ci "customer"                              # expect 0
 ```
 
 ---
@@ -128,22 +133,22 @@ git push -u origin main
 ## Working on it locally
 
 There is no build step, but the page needs the API, so opening `public/index.html` from disk will
-just show it failing to reach the server. Run `npm install` once (pulls in `mammoth`), then use the
-Vercel CLI:
+just show the sign-in screen failing to reach the server. Run `npm install` once (pulls in
+`mammoth`), then use the Vercel CLI:
 
 ```bash
 npm install
 npx vercel dev
 ```
 
-Leave `.env.local` empty, or without the Redis variables, and the app will boot straight in showing
-the "storage not linked" banner and refuse to save — everything else (navigation, forms) still
-works. Add `ANTHROPIC_API_KEY` locally to test real generation.
+with a `.env.local` holding `SESSION_SECRET` and `APP_PASSWORD`. Leave the Redis and Anthropic
+variables out and the app will correctly show its "storage not linked" banner and refuse to save —
+everything else (sign-in, navigation, forms) still works.
 
 ## How to use it
 
 1. **+ New session** — pick the client from the managed list (or add a new one inline — see below),
-   who ran the interview, which of the 10 modules the call was about, the date, and optionally who
+   who ran the interview, which of the 11 session types the call was about, the date, and optionally who
    was on the call. Paste the transcript, or upload a `.txt`/`.docx` file — either way you can review
    and edit the text before submitting.
 2. Submitting creates the session and kicks off analysis immediately; the detail page opens into a
@@ -156,7 +161,7 @@ works. Add `ANTHROPIC_API_KEY` locally to test real generation.
    substantively answered. **Regenerate** re-runs the analysis from the same transcript.
 4. The dashboard lists every session with its module, a status badge (Draft/Ready/Error), and text
    + module filters.
-5. **Modules** (top nav) lists all 10 modules with their analyzed/total session counts and trend
+5. **Modules** (top nav) lists all 11 session types with their analyzed/total session counts and trend
    status. Once a module has at least one analyzed session, **Build trend** synthesizes its feature
    prioritization (now/later/future), adoption blockers, and draft messaging from every analyzed
    session tagged to it — worth more with several sessions, and re-runnable any time as more land
@@ -193,31 +198,32 @@ into copy that might get reused externally.
 magnitude per module-trend or Go-to-Market build depending on how many sessions feed it (the
 Go-to-Market build reads every analyzed session across every module, so it's the priciest single
 generation in the app once the program is at full scale — still comfortably a few cents to low tens
-of cents, not dollars). There is no rate limiting
-on who can trigger a generation at all — anyone who can reach the app can run up API cost, same as
-anyone who can reach it can read every session. This is the same access-control gap described above,
-not a separate one; whatever gate you put in front of the app covers both.
+of cents, not dollars). There's no rate limiting on who can trigger a generation beyond being signed
+in — acceptable for a small internal tool, worth revisiting if usage patterns suggest otherwise.
 
 ## How it fits together
 
 ```
 public/
-  index.html     shell: dashboard + new-session form + session detail +
-                  modules overview + module trend detail + go-to-market view. No auth screen.
+  index.html     shell: sign-in screen + dashboard + new-session form + session detail +
+                  modules overview + module trend detail + go-to-market view.
   robots.txt
-api/             serverless functions (zero-config, picked up by Vercel) — none require auth
-  status.js               "is Redis linked?", called on page load to show/hide a banner
-  clients.js              managed client list (GET) + add (POST)
-  sessions.js             list/detail (GET) + create/update/delete (POST)
+api/             serverless functions (zero-config, picked up by Vercel)
+  login.js                password -> role-less signed HttpOnly cookie
+  logout.js                clears it
+  session.js               "am I signed in?", called on page load
+  clients.js              managed client list (GET) + add (POST) — session required
+  sessions.js             list/detail (GET) + create/update/delete (POST) — session required
   sessions-analyze.js     generates/regenerates a session's 11-question analysis — longer maxDuration
-  module-trends.js        module trend metadata/detail (GET)
+  module-trends.js        module trend metadata/detail (GET) — session required
   module-trends-build.js  (re)builds a module's trend from its analyzed sessions — longer maxDuration
-  gtm-messaging.js        overall go-to-market record (GET)
+  gtm-messaging.js        overall go-to-market record (GET) — session required
   gtm-messaging-build.js  (re)builds it from every analyzed session across all modules — longer maxDuration
-  parse-transcript.js     .docx -> plain text via mammoth
+  parse-transcript.js     .docx -> plain text via mammoth — session required
 lib/             never served over HTTP
-  store.js             Redis REST access — sessions, clients, module trends, the gtm record
-  modules.js            the 10 fixed modules (id + label) and validation
+  auth.js              HMAC session tokens, constant-time password check, single shared password
+  store.js             Redis REST access — sessions, clients, module trends, the gtm record, login throttling
+  modules.js            the 11 fixed session types (id + label) and validation
   analysis.js           builds the per-session 11-question analysis prompt
   module-trends.js       builds the per-module trend synthesis prompt
   gtm-messaging.js        builds the overall, cross-module go-to-market synthesis prompt
@@ -225,6 +231,13 @@ lib/             never served over HTTP
 vercel.json      static root, security headers, all three long-running endpoints' maxDuration
 package.json     pins Node 22. One dependency (mammoth). No build script.
 ```
+
+The session token is an HMAC-signed `{iat, exp}` — no server-side session store to provision, and
+nothing secret inside the cookie, and no `role` field since there's only one kind of session.
+Verified with a constant-time comparison, so a tampered payload, a reused signature, or an expired
+token are all rejected. The password itself is compared through a SHA-256 digest so the comparison
+is over a fixed 32 bytes and does not leak length through timing. Failed sign-ins are throttled per
+IP — 10 in 15 minutes — when Redis is linked.
 
 ## Data model
 

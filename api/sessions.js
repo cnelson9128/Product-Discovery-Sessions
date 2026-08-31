@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const auth = require('../lib/auth');
 const store = require('../lib/store');
 const modules = require('../lib/modules');
 
@@ -10,8 +11,9 @@ const TRANSCRIPT_MAX = 150000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /*
- * No auth in this app — see README's "Access" section. Only the field
- * allow-list below is ever written.
+ * Any signed-in session can read and write here — there is only one shared
+ * password, and everyone who has it needs full access to log and review
+ * discovery sessions. Only the field allow-list below is ever written.
  */
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -35,6 +37,9 @@ function queryId(req) {
 }
 
 async function handleGet(req, res) {
+  const session = auth.requireSession(req, res);
+  if (!session) return undefined;
+
   const id = queryId(req);
   if (id) {
     const item = await store.readSession(String(id));
@@ -117,6 +122,9 @@ function indexEntry(record) {
 }
 
 async function handlePost(req, res) {
+  const session = auth.requireSession(req, res);
+  if (!session) return undefined;
+
   if (!store.configured()) {
     return res.status(503).json({
       error: 'No Redis store is linked, so sessions cannot be saved. Add an Upstash Redis ' +
