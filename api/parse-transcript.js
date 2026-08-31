@@ -1,7 +1,6 @@
 'use strict';
 
 const mammoth = require('mammoth');
-const auth = require('../lib/auth');
 
 /*
  * Extracts plain text from an uploaded .docx transcript, so the person
@@ -24,9 +23,6 @@ module.exports = async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed.' });
   }
-
-  const session = auth.requireSession(req, res);
-  if (!session) return undefined;
 
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   if (typeof body.fileBase64 !== 'string' || !body.fileBase64) {

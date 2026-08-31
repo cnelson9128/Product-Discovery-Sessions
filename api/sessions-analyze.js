@@ -1,6 +1,5 @@
 'use strict';
 
-const auth = require('../lib/auth');
 const store = require('../lib/store');
 const analysis = require('../lib/analysis');
 const modules = require('../lib/modules');
@@ -18,9 +17,6 @@ module.exports = async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed.' });
   }
-
-  const session = auth.requireSession(req, res);
-  if (!session) return undefined;
 
   if (!store.configured()) {
     return res.status(503).json({

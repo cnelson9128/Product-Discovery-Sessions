@@ -1,68 +1,64 @@
 # Firefish Product Discovery Sessions — internal hosting
 
-A password-protected internal tool on Vercel supporting Firefish's v2 product-discovery research
-program: roughly 10 clients, ~100 sessions over 8-10 weeks, each session about one of 10 fixed
-product modules, each asking the same 11 standard validation questions (today's process, value
-created, who benefits, adoption blockers, v1 vs v2, trust concerns, migration blockers/conditions,
-top priority improvement, success metric, one-sentence pitch). Every session's transcript is
-analyzed into structured answers to those 11 questions, and once a module has multiple analyzed
-sessions its answers can be synthesized on demand into a **module trend** — feature prioritization
+An internal tool on Vercel supporting Firefish's v2 product-discovery research program: roughly 10
+clients, ~100 sessions over 8-10 weeks, each session about one of 10 fixed product modules, each
+asking the same 11 standard validation questions (today's process, value created, who benefits,
+adoption blockers, v1 vs v2, trust concerns, migration blockers/conditions, top priority
+improvement, success metric, one-sentence pitch). Every session's transcript is analyzed into
+structured answers to those 11 questions, and once a module has multiple analyzed sessions its
+answers can be synthesized on demand into a **module trend** — feature prioritization
 (now/later/future), adoption blockers, and draft go-to-market messaging.
 
 Distinct from the sibling `competitor-analysis` repo's sales-facing demo-prep tool — this is PM/
 research interviews about product needs, not sales calls. A static shell in `public/`, plus
-serverless functions in `api/` that hold session data behind a login. No build step, and one runtime
-dependency — `mammoth`, used only to read uploaded `.docx` transcripts.
-
-**One shared password, not two roles.** This is a small trusted team (product managers/researchers)
-where everyone needs full access — there's no read-only audience for this tool the way
-`competitor-analysis` has viewers who shouldn't edit. Anyone with the password can log a session,
-read every session, and regenerate its analysis. There is no per-user login, so there's also no
-audit trail of *who* created or edited a given session beyond a free-text "Interviewer" field and
-timestamps.
+serverless functions in `api/` that hold session data. No build step, and one runtime dependency —
+`mammoth`, used only to read uploaded `.docx` transcripts.
 
 ---
 
-## Read this before you deploy
+## Access — there is none. Read this before you deploy.
 
-**This content is internal only.** Discovery-call transcripts name real customers or prospects and
-describe their pain points in their own words — treat this the same as any other customer data.
+**This app has no login, no password, and no session concept of any kind — this was a deliberate,
+explicit choice, not an oversight.** Every `/api/*` endpoint answers any request that reaches it, and
+`public/index.html` renders straight into the full app for anyone who loads it. There is no signed
+cookie, no shared password, nothing gating `/api/sessions`, `/api/clients`, or `/api/module-trends`.
 
-**The login is a real boundary, not a screen over the data.** No session data is in the HTML. It
-lives only in Redis, reachable exclusively through `/api/sessions*` to a request carrying a valid
-signed session cookie. An anonymous visitor who views source finds the layout and nothing else.
+**Discovery-call transcripts name real customers or prospects and describe their pain points, in
+their own words.** With no application-level access control, the only thing standing between that
+data and the public internet is whatever you put in front of it at the hosting layer — see below.
+Do not deploy this to a public URL without one of those in place, and do not point it at a custom
+domain you'd expect a search engine or a curious visitor to stumble onto (the `X-Robots-Tag` header
+and `robots.txt` discourage crawling, but neither restricts access).
 
-**Layering Vercel Deployment Protection on top is still worth doing.** This login protects the
-data; Deployment Protection would also stop an anonymous visitor reaching the sign-in page at all.
-They solve different halves and do not conflict.
+**You almost certainly want Vercel Deployment Protection**, since the app itself no longer provides
+any door at all:
+
+| Option | Who gets in | Notes |
+|---|---|---|
+| **Vercel Authentication** | Anyone in your Vercel team | Requires each viewer to be a Vercel team member. |
+| **Password Protection** | Anyone with the shared password | Simplest to hand to a small external research team; paid-plan feature — check your plan. |
+| **Trusted IPs** | Only your office/VPN ranges | Tightest, but breaks home/mobile access. |
+
+Set this under the project's **Settings → Deployment Protection**, covering **Production** (the
+default only covers Preview deployments). If you'd rather re-add an in-app password gate instead —
+or alongside — the sibling `competitor-analysis` repo's `lib/auth.js`/`api/login.js` is a working
+reference for exactly that pattern.
 
 ---
 
 ## Set this up — the site will not work until you do
 
-The functions read three required environment variables. Without them every sign-in returns a 500
-and nobody gets in, including you.
-
 ### 1. Environment variables
 
-Vercel → the project → **Settings → Environment Variables**. Add these to **Production** (and
+Vercel → the project → **Settings → Environment Variables**. Add this to **Production** (and
 Preview, if you use preview deployments):
 
 | Name | Value |
 |---|---|
-| `SESSION_SECRET` | A random string of **32+ characters**. Anything shorter is rejected at runtime. |
-| `APP_PASSWORD` | The one shared password everyone on the team signs in with. |
-| `SESSION_TTL_HOURS` | *Optional.* How long a sign-in lasts. Defaults to 12, capped at 168. |
 | `ANTHROPIC_API_KEY` | Required to generate analysis. From [console.anthropic.com](https://console.anthropic.com). |
 
-To generate `SESSION_SECRET`, run this anywhere with Node, or use any password manager's generator:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
-```
-
-Rotating `APP_PASSWORD` takes effect on the next sign-in. Changing `SESSION_SECRET` immediately
-invalidates every existing session, which is the lever to pull if the password leaks.
+That's the only one the code reads. Redis credentials (below) are also required for anything to
+save, but come from a Vercel integration rather than being typed in by hand.
 
 ### 2. Storage — Upstash Redis
 
@@ -98,13 +94,14 @@ worse outcome.
 
 ### 3. Check it after deploying
 
-Replace `<domain>` and run these. The first two are the ones that matter.
+Replace `<domain>`. Since there's no app-level auth, this only confirms the app itself is working —
+it does **not** confirm the data is private. Privacy comes entirely from whatever Deployment
+Protection (or other gate) you put in front of it — verify that separately, e.g. by opening the URL
+in an incognito window and confirming it actually challenges you.
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/sessions       # expect 401
-curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/clients        # expect 401
-curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/module-trends  # expect 401
-curl -s https://<domain>/ | grep -ci "customer"                              # expect 0
+curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/sessions       # expect 200 (or 401/403 from your gate, if one is set up)
+curl -s https://<domain>/ | grep -ci "Product Discovery"                     # expect 1+ — confirms the app itself loaded
 ```
 
 ---
@@ -127,17 +124,17 @@ git push -u origin main
 ## Working on it locally
 
 There is no build step, but the page needs the API, so opening `public/index.html` from disk will
-just show the sign-in screen failing to reach the server. Run `npm install` once (pulls in
-`mammoth`), then use the Vercel CLI:
+just show it failing to reach the server. Run `npm install` once (pulls in `mammoth`), then use the
+Vercel CLI:
 
 ```bash
 npm install
 npx vercel dev
 ```
 
-with a `.env.local` holding `SESSION_SECRET` and `APP_PASSWORD`. Leave the Redis and Anthropic
-variables out and the app will show the "storage not linked" banner and refuse to save — everything
-else (sign-in, navigation) still works.
+Leave `.env.local` empty, or without the Redis variables, and the app will boot straight in showing
+the "storage not linked" banner and refuse to save — everything else (navigation, forms) still
+works. Add `ANTHROPIC_API_KEY` locally to test real generation.
 
 ## How to use it
 
@@ -184,30 +181,28 @@ messaging drafts structurally incapable of leaking a client name into copy that 
 externally.
 
 **Cost**, at `claude-opus-5` rates: roughly a few cents per session analysis, and a similar order of
-magnitude per module-trend build depending on how many sessions feed it. There's no rate limiting on
-who can trigger a generation beyond being signed in — acceptable for a small internal tool, worth
-revisiting if usage patterns suggest otherwise.
+magnitude per module-trend build depending on how many sessions feed it. There is no rate limiting
+on who can trigger a generation at all — anyone who can reach the app can run up API cost, same as
+anyone who can reach it can read every session. This is the same access-control gap described above,
+not a separate one; whatever gate you put in front of the app covers both.
 
 ## How it fits together
 
 ```
 public/
-  index.html     shell: sign-in + dashboard + new-session form + session detail +
-                  modules overview + module trend detail. No data.
+  index.html     shell: dashboard + new-session form + session detail +
+                  modules overview + module trend detail. No auth screen.
   robots.txt
-api/             serverless functions (zero-config, picked up by Vercel)
-  login.js               password -> role-less signed HttpOnly cookie
-  logout.js               clears it
-  session.js              "am I signed in?", called on page load
-  clients.js              managed client list (GET) + add (POST) — session required
-  sessions.js             list/detail (GET) + create/update/delete (POST) — session required
+api/             serverless functions (zero-config, picked up by Vercel) — none require auth
+  status.js               "is Redis linked?", called on page load to show/hide a banner
+  clients.js              managed client list (GET) + add (POST)
+  sessions.js             list/detail (GET) + create/update/delete (POST)
   sessions-analyze.js     generates/regenerates a session's 11-question analysis — longer maxDuration
-  module-trends.js        module trend metadata/detail (GET) — session required
+  module-trends.js        module trend metadata/detail (GET)
   module-trends-build.js  (re)builds a module's trend from its analyzed sessions — longer maxDuration
-  parse-transcript.js     .docx -> plain text via mammoth — session required
+  parse-transcript.js     .docx -> plain text via mammoth
 lib/             never served over HTTP
-  auth.js             HMAC session tokens, constant-time password check, single shared password
-  store.js            Redis REST access — sessions, clients, module trends, login-throttling counters
+  store.js            Redis REST access — sessions, clients, module trends
   modules.js           the 10 fixed modules (id + label) and validation
   analysis.js          builds the per-session 11-question analysis prompt
   module-trends.js      builds the cross-session module-trend synthesis prompt
@@ -215,13 +210,6 @@ lib/             never served over HTTP
 vercel.json      static root, security headers, both long-running endpoints' maxDuration
 package.json     pins Node 22. One dependency (mammoth). No build script.
 ```
-
-The session token is an HMAC-signed `{iat, exp}` — no server-side session store to provision, and
-nothing secret inside the cookie, and no `role` field since there's only one kind of session.
-Verified with a constant-time comparison, so a tampered payload, a reused signature, or an expired
-token are all rejected. The password itself is compared through a SHA-256 digest so the comparison
-is over a fixed 32 bytes and does not leak length through timing. Failed sign-ins are throttled per
-IP — 10 in 15 minutes — when Redis is linked.
 
 ## Data model
 

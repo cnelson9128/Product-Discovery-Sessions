@@ -41,24 +41,6 @@ body{
 a{color:var(--accent)}
 button{font:inherit}
 .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
-.boot{display:flex;align-items:center;justify-content:center;height:100vh;color:var(--ink-3)}
-
-.gate{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
-.gate-box{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);
-  border-radius:14px;padding:32px;box-shadow:var(--shadow)}
-.gate-brand{font-weight:700;font-size:15px;color:var(--ink-2);margin-bottom:18px}
-.gate-brand span{display:block;font-weight:400;font-size:12px;color:var(--ink-3);margin-top:2px}
-.gate-box h1{font-size:20px;margin:0 0 6px}
-.gate-lede{color:var(--ink-3);font-size:13px;margin:0 0 20px}
-.gate-box label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--ink-3);margin-bottom:6px}
-.gate-box input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
-  background:var(--bg);color:var(--ink);font-size:14px;margin-bottom:16px}
-.gate-box button{width:100%;padding:11px;border:0;border-radius:8px;background:var(--brand);
-  color:var(--brand-ink);font-weight:600;font-size:14px;cursor:pointer}
-.gate-box button:disabled{opacity:.6;cursor:default}
-.gate-err{background:var(--crit-bg);color:var(--crit-ink);padding:9px 12px;border-radius:8px;
-  font-size:13px;margin:0 0 14px}
 
 header.top{border-bottom:1px solid var(--line);background:var(--panel)}
 .hrow{display:flex;align-items:center;justify-content:space-between;padding:16px 0;flex-wrap:wrap;gap:12px}
@@ -178,22 +160,7 @@ try{var _t=localStorage.getItem('pds-theme');
 </head>
 <body>
 
-<div class="boot" id="boot">Checking your session…</div>
-
-<div class="gate" id="gate" hidden>
-  <form class="gate-box" id="gateform" autocomplete="on">
-    <div class="gate-brand">Firefish<span>Product Discovery Sessions</span></div>
-    <h1>Sign in</h1>
-    <p class="gate-lede">This tool is internal to Firefish. Access is by shared password.</p>
-    <label for="pw">Password</label>
-    <input id="pw" name="password" type="password" autocomplete="current-password"
-      autocapitalize="off" spellcheck="false" required>
-    <button type="submit" id="gatego">Sign in</button>
-    <p class="gate-err" id="gateerr" role="alert" hidden></p>
-  </form>
-</div>
-
-<div id="app" hidden>
+<div id="app">
 <header class="top">
   <div class="wrap hrow">
     <div class="brand">Product Discovery Sessions<span>Firefish, internal</span></div>
@@ -202,7 +169,6 @@ try{var _t=localStorage.getItem('pds-theme');
       <a href="#modules" class="tbtn" id="nav-modules">Modules</a>
       <span id="storagewarn" class="tbtn" style="display:none;border-color:var(--crit-ink);color:var(--crit-ink)" title="No storage linked — nothing will save">Storage not linked</span>
       <button class="tbtn" id="theme">Dark</button>
-      <button class="tbtn" id="signout">Sign out</button>
     </div>
   </div>
 </header>
@@ -295,23 +261,9 @@ try{var _t=localStorage.getItem('pds-theme');
 
 <script>
 /* ============================================================================
-   Boot. Session data is not in this file — it is fetched from /api/sessions*,
-   which only answers a request carrying a valid session cookie.
+   Boot. No auth in this app — see README's "Access" section. This only
+   checks /api/status to know whether Redis is linked before rendering.
    ========================================================================= */
-
-const boot=document.getElementById('boot'),
-      gate=document.getElementById('gate'),
-      appEl=document.getElementById('app'),
-      gateForm=document.getElementById('gateform'),
-      gateErr=document.getElementById('gateerr'),
-      gateGo=document.getElementById('gatego'),
-      pwInput=document.getElementById('pw');
-
-function showGate(message){
-  boot.hidden=true; appEl.hidden=true; gate.hidden=false;
-  if(message){ gateErr.textContent=message; gateErr.hidden=false; }
-  pwInput.focus();
-}
 
 async function api(path,options){
   const res=await fetch(path,Object.assign({
@@ -323,45 +275,13 @@ async function api(path,options){
   return {ok:res.ok,status:res.status,body:body||{}};
 }
 
-let started=false;
-async function loadAndStart(){
-  const res=await api('/api/session');
-  if(!res.ok || !res.body.signedIn){ showGate(); return false; }
-  if(started) return true;
-  started=true;
-  gate.hidden=true; boot.hidden=true; appEl.hidden=false;
-  bootApp(res.body.storage);
-  return true;
-}
-
-gateForm.addEventListener('submit',async function(e){
-  e.preventDefault();
-  gateErr.hidden=true;
-  gateGo.disabled=true; gateGo.textContent='Signing in…';
-  try{
-    const res=await api('/api/login',{method:'POST',body:JSON.stringify({password:pwInput.value})});
-    if(!res.ok){
-      gateErr.textContent=res.body.error||'Sign-in failed.';
-      gateErr.hidden=false;
-      pwInput.select();
-      return;
-    }
-    pwInput.value='';
-    await loadAndStart();
-  }catch(err){
-    gateErr.textContent='Could not reach the server. Check your connection and try again.';
-    gateErr.hidden=false;
-  }finally{
-    gateGo.disabled=false; gateGo.textContent='Sign in';
-  }
-});
-
 (async function(){
+  let storageConfigured=false;
   try{
-    const res=await api('/api/session');
-    if(res.ok&&res.body.signedIn){ await loadAndStart(); return; }
+    const res=await api('/api/status');
+    if(res.ok) storageConfigured=!!res.body.storage;
   }catch(e){}
-  showGate();
+  bootApp(storageConfigured);
 })();
 
 /* ============================================================================
@@ -426,11 +346,6 @@ function bootApp(storageConfigured){
     paintThemeBtn();
   });
   paintThemeBtn();
-
-  document.getElementById('signout').addEventListener('click',async function(){
-    await api('/api/logout',{method:'POST'});
-    location.reload();
-  });
 
   if(!storageConfigured){
     document.getElementById('storagewarn').style.display='inline-block';
