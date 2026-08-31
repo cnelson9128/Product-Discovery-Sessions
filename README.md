@@ -7,7 +7,11 @@ adoption blockers, v1 vs v2, trust concerns, migration blockers/conditions, top 
 improvement, success metric, one-sentence pitch). Every session's transcript is analyzed into
 structured answers to those 11 questions, and once a module has multiple analyzed sessions its
 answers can be synthesized on demand into a **module trend** — feature prioritization
-(now/later/future), adoption blockers, and draft go-to-market messaging.
+(now/later/future), adoption blockers, and draft messaging specific to that one module. A level
+above that, a **Go-to-Market view** synthesizes across every analyzed session in every module at
+once — one overall positioning statement, value pillars, proof points, objection handling, and a
+per-module highlight reel, built only from what recurs across more than one customer or module
+rather than any single session's one-off comment.
 
 Distinct from the sibling `competitor-analysis` repo's sales-facing demo-prep tool — this is PM/
 research interviews about product needs, not sales calls. A static shell in `public/`, plus
@@ -154,12 +158,17 @@ works. Add `ANTHROPIC_API_KEY` locally to test real generation.
    + module filters.
 5. **Modules** (top nav) lists all 10 modules with their analyzed/total session counts and trend
    status. Once a module has at least one analyzed session, **Build trend** synthesizes its feature
-   prioritization (now/later/future), adoption blockers, and draft GTM messaging from every analyzed
+   prioritization (now/later/future), adoption blockers, and draft messaging from every analyzed
    session tagged to it — worth more with several sessions, and re-runnable any time as more land
    (**Refresh trend**, with a badge showing how many sessions have been added or removed/reassigned
    since the last build). Every prioritized item and blocker links back to the specific sessions that
    support it (resolved to client name + date, never written into the generated text itself — see
    the anti-fabrication note below).
+6. **Go-to-Market** (top nav) is the same idea one level up: built from every analyzed session across
+   *all* modules at once, not scoped to one. **Build**/**Refresh** synthesizes an overall positioning
+   statement, value pillars, proof points, objection handling, and a one-line highlight per module
+   that has enough signal to support one — each grounded across more than one customer or module, so
+   a single session's one-off comment shows up in that module's own trend rather than here.
 
 **Managed client list, not free text.** ~10 clients are each expected to generate many sessions over
 the program, so — same reasoning as the fixed module list — clients are chosen from a small managed
@@ -172,16 +181,19 @@ generate the per-session analysis, and everything is stored in the same Redis st
 upload additionally passes through this app's own server (never a third party) to be converted to
 text. Don't paste anything into it that shouldn't leave the building.
 
-**Module trends never write a client name into generated text.** The synthesis prompt is given each
-session's client name only so it can reason about which distinct customers said what, but every
-output item cites `supporting_session_ids` instead of naming anyone — the frontend resolves those to
-client/date chips from data it already trusts (the session list), not from model recall. This avoids
-a real attribution-error risk once synthesizing across many sessions, and makes go-to-market
-messaging drafts structurally incapable of leaking a client name into copy that might get reused
-externally.
+**Neither trend view ever writes a client name into generated text.** Both the module-trend and the
+Go-to-Market synthesis prompts are given each session's client name only so they can reason about
+which distinct customers said what, but every output item cites `supporting_session_ids` instead of
+naming anyone — the frontend resolves those to client/date chips from data it already trusts (the
+session list), not from model recall. This avoids a real attribution-error risk once synthesizing
+across many sessions, and makes messaging drafts structurally incapable of leaking a client name
+into copy that might get reused externally.
 
 **Cost**, at `claude-opus-5` rates: roughly a few cents per session analysis, and a similar order of
-magnitude per module-trend build depending on how many sessions feed it. There is no rate limiting
+magnitude per module-trend or Go-to-Market build depending on how many sessions feed it (the
+Go-to-Market build reads every analyzed session across every module, so it's the priciest single
+generation in the app once the program is at full scale — still comfortably a few cents to low tens
+of cents, not dollars). There is no rate limiting
 on who can trigger a generation at all — anyone who can reach the app can run up API cost, same as
 anyone who can reach it can read every session. This is the same access-control gap described above,
 not a separate one; whatever gate you put in front of the app covers both.
@@ -191,7 +203,7 @@ not a separate one; whatever gate you put in front of the app covers both.
 ```
 public/
   index.html     shell: dashboard + new-session form + session detail +
-                  modules overview + module trend detail. No auth screen.
+                  modules overview + module trend detail + go-to-market view. No auth screen.
   robots.txt
 api/             serverless functions (zero-config, picked up by Vercel) — none require auth
   status.js               "is Redis linked?", called on page load to show/hide a banner
@@ -200,14 +212,17 @@ api/             serverless functions (zero-config, picked up by Vercel) — non
   sessions-analyze.js     generates/regenerates a session's 11-question analysis — longer maxDuration
   module-trends.js        module trend metadata/detail (GET)
   module-trends-build.js  (re)builds a module's trend from its analyzed sessions — longer maxDuration
+  gtm-messaging.js        overall go-to-market record (GET)
+  gtm-messaging-build.js  (re)builds it from every analyzed session across all modules — longer maxDuration
   parse-transcript.js     .docx -> plain text via mammoth
 lib/             never served over HTTP
-  store.js            Redis REST access — sessions, clients, module trends
-  modules.js           the 10 fixed modules (id + label) and validation
-  analysis.js          builds the per-session 11-question analysis prompt
-  module-trends.js      builds the cross-session module-trend synthesis prompt
-  anthropic-client.js   shared streaming call + error handling, used by both prompt files above
-vercel.json      static root, security headers, both long-running endpoints' maxDuration
+  store.js             Redis REST access — sessions, clients, module trends, the gtm record
+  modules.js            the 10 fixed modules (id + label) and validation
+  analysis.js           builds the per-session 11-question analysis prompt
+  module-trends.js       builds the per-module trend synthesis prompt
+  gtm-messaging.js        builds the overall, cross-module go-to-market synthesis prompt
+  anthropic-client.js    shared streaming call + error handling, used by all three prompt files above
+vercel.json      static root, security headers, all three long-running endpoints' maxDuration
 package.json     pins Node 22. One dependency (mammoth). No build script.
 ```
 
@@ -219,14 +234,16 @@ package.json     pins Node 22. One dependency (mammoth). No build script.
 | `pds:session:<id>` | One session's full record: metadata, transcript, and the 11-question analysis. Fetched only when that session's detail view is opened, or when building a module trend. |
 | `pds:clients` | A JSON array of managed client names. |
 | `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, and the synthesized result. |
+| `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |
 
 Two Redis keys per session (index + full record), not one blob: transcripts can run to tens of
 thousands of characters, and a dashboard that had to read every transcript just to list rows would
-only get slower as the team logs more sessions. The same split motivates keeping module trends as a
-separate key per module rather than folding them into the session index.
+only get slower as the team logs more sessions. The same split motivates keeping module trends (and
+the overall go-to-market record) as their own keys rather than folding them into the session index.
 
-A module trend's staleness (shown as "N new sessions since last build" or "up to date") is computed
-on read by diffing the trend's `builtFromSessionIds` against the module's current ready sessions —
-never stored as a flag, so it's always correct even after a session is edited, reassigned to a
-different module, or deleted, with no separate invalidation step to remember. A failed rebuild
-persists the error but keeps the previous `result`, so a bad refresh never wipes a working trend.
+A trend's staleness (shown as "N new sessions since last build" or "up to date") is computed on read
+by diffing its `builtFromSessionIds` against the current set of ready sessions it's scoped to (one
+module's, or — for the go-to-market record — every module's) — never stored as a flag, so it's
+always correct even after a session is edited, reassigned to a different module, or deleted, with no
+separate invalidation step to remember. A failed rebuild persists the error but keeps the previous
+`result`, so a bad refresh never wipes a working trend or the go-to-market record.

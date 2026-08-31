@@ -3,7 +3,8 @@
   "outputDirectory": "public",
   "functions": {
     "api/sessions-analyze.js": { "maxDuration": 300 },
-    "api/module-trends-build.js": { "maxDuration": 300 }
+    "api/module-trends-build.js": { "maxDuration": 300 },
+    "api/gtm-messaging-build.js": { "maxDuration": 300 }
   },
   "headers": [
     {
