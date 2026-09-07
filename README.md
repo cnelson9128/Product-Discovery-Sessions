@@ -174,6 +174,15 @@ everything else (sign-in, navigation, forms) still works.
    statement, value pillars, proof points, objection handling, and a one-line highlight per module
    that has enough signal to support one — each grounded across more than one customer or module, so
    a single session's one-off comment shows up in that module's own trend rather than here.
+7. **Status Report** (top nav) is a monthly-board-pack-shaped snapshot: sessions held per session
+   type against the program's goal of 10 each (with a progress bar and %), the overall total against
+   the sum of those targets, and how many prioritized features ("cards" in a module's Now/Later/
+   Future columns) each module's trend has surfaced so far. **Print / save as PDF** hides the nav and
+   buttons for a clean printout. This reads existing data only — session counts come straight from
+   the dashboard's own session list, and feature counts are recorded once, at trend-build time (see
+   `counts` in the data model below), so nothing needs to be rebuilt just to view the report; feature
+   counts are only as current as each module's last trend build, same as the Modules page's own
+   staleness indicator.
 
 **Managed client list, not free text.** ~10 clients are each expected to generate many sessions over
 the program, so — same reasoning as the fixed module list — clients are chosen from a small managed
@@ -206,7 +215,7 @@ in — acceptable for a small internal tool, worth revisiting if usage patterns 
 ```
 public/
   index.html     shell: sign-in screen + dashboard + new-session form + session detail +
-                  modules overview + module trend detail + go-to-market view.
+                  modules overview + module trend detail + go-to-market view + status report.
   robots.txt
 api/             serverless functions (zero-config, picked up by Vercel)
   login.js                password -> role-less signed HttpOnly cookie
@@ -246,7 +255,7 @@ IP — 10 in 15 minutes — when Redis is linked.
 | `pds:session:index` | Lightweight metadata (incl. `module`) for every session — no transcript, no analysis. What the dashboard and module-count views read. |
 | `pds:session:<id>` | One session's full record: metadata, transcript, and the 11-question analysis. Fetched only when that session's detail view is opened, or when building a module trend. |
 | `pds:clients` | A JSON array of managed client names. |
-| `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, and the synthesized result. |
+| `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, `counts` (now/later/future/total card counts, computed once at build time — what the Status Report reads), and the synthesized result. |
 | `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |
 
 Two Redis keys per session (index + full record), not one blob: transcripts can run to tens of

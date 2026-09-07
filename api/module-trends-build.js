@@ -5,6 +5,17 @@ const store = require('../lib/store');
 const modules = require('../lib/modules');
 const moduleTrends = require('../lib/module-trends');
 
+/* Every item in feature_prioritization.now/later/future is one "card" in
+   that module's priority section — this is the count the Status Report tab
+   reports as "features logged" per module. */
+function prioritizationCounts(result) {
+  const fp = (result && result.feature_prioritization) || {};
+  const now = (fp.now || []).length;
+  const later = (fp.later || []).length;
+  const future = (fp.future || []).length;
+  return { now: now, later: later, future: future, total: now + later + future };
+}
+
 /*
  * (Re)builds the trend synthesis for one module from every currently-ready
  * session tagged to it. Split out from api/module-trends.js because this is
@@ -67,6 +78,11 @@ module.exports = async function handler(req, res) {
       lastError: null,
       lastErrorCode: null,
       lastErrorAt: null,
+      /* Counted here, once, at build time, rather than recomputed from
+         `result` on every read — the Status Report tab reads counts for all
+         11 modules at once via the summary endpoint, which strips `result`
+         to stay light, so the count needs to survive that strip. */
+      counts: prioritizationCounts(generated.result),
       result: generated.result
     };
     await store.writeModuleTrend(moduleId, record);
@@ -84,6 +100,7 @@ module.exports = async function handler(req, res) {
       lastErrorCode: (err && err.code) || null,
       lastErrorAt: now,
       result: previous ? previous.result : null,
+      counts: previous ? previous.counts : null,
       builtFromSessionIds: previous ? previous.builtFromSessionIds : [],
       builtAt: previous ? previous.builtAt : null,
       sessionCountAtBuild: previous ? previous.sessionCountAtBuild : 0

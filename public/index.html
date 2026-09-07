@@ -169,6 +169,18 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 :root[data-theme="dark"] .pitem{background:rgba(0,0,0,.2)}
 .pitem:last-child{margin-bottom:0}
 .pitem .rationale{font-size:12.5px;opacity:.85;margin-top:4px}
+
+.reporthead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.pbar-row{display:flex;align-items:center;gap:10px}
+.pbar-track{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:999px;height:10px;overflow:hidden;min-width:80px}
+.pbar-fill{height:100%;background:var(--accent);border-radius:999px}
+.pbar-fill.over{background:var(--ok-ink)}
+.pbar-label{font-size:12px;color:var(--ink-3);white-space:nowrap}
+@media print{
+  header.top,.printbtn,.backlink,.dactions{display:none!important}
+  body{background:#fff}
+  .panel{border:1px solid #ccc;box-shadow:none;break-inside:avoid}
+}
 </style>
 <script>
 /* stored theme is applied before first paint, so a dark-mode reader never sees a white flash */
@@ -201,6 +213,7 @@ try{var _t=localStorage.getItem('pds-theme');
       <a href="#sessions" class="tbtn" id="nav-sessions">Sessions</a>
       <a href="#modules" class="tbtn" id="nav-modules">Modules</a>
       <a href="#gtm" class="tbtn" id="nav-gtm">Go-to-Market</a>
+      <a href="#report" class="tbtn" id="nav-report">Status Report</a>
       <span id="storagewarn" class="tbtn" style="display:none;border-color:var(--crit-ink);color:var(--crit-ink)" title="No storage linked — nothing will save">Storage not linked</span>
       <button class="tbtn" id="theme">Dark</button>
       <button class="tbtn" id="signout">Sign out</button>
@@ -297,6 +310,18 @@ try{var _t=localStorage.getItem('pds-theme');
       value pillars, proof points, and objection handling that recur across more than one customer
       or module. Never names a client; every item links back to the sessions that support it.</p>
     <div id="gtmbody"></div>
+  </section>
+
+  <section id="view-report" hidden>
+    <div class="reporthead">
+      <div>
+        <h2 class="ph">Status report</h2>
+        <p class="sub">A snapshot for the monthly board pack: session progress toward the 10-per-type
+          goal, and how many prioritized features each module's trend has surfaced so far.</p>
+      </div>
+      <button type="button" class="btn ghost printbtn" id="printreportbtn">Print / save as PDF</button>
+    </div>
+    <div id="reportbody"></div>
   </section>
 
 </main>
@@ -442,6 +467,8 @@ function bootApp(storageConfigured){
     location.reload();
   });
 
+  document.getElementById('printreportbtn').addEventListener('click',function(){ window.print(); });
+
   if(!storageConfigured){
     document.getElementById('storagewarn').style.display='inline-block';
   }
@@ -461,19 +488,24 @@ function bootApp(storageConfigured){
     detail:document.getElementById('view-detail'),
     modules:document.getElementById('view-modules'),
     moduledetail:document.getElementById('view-module-detail'),
-    gtm:document.getElementById('view-gtm')
+    gtm:document.getElementById('view-gtm'),
+    report:document.getElementById('view-report')
   };
   function showView(name){
     Object.keys(views).forEach(function(k){ views[k].hidden = k!==name; });
     document.getElementById('nav-sessions').classList.toggle('active', name==='list'||name==='form'||name==='detail');
     document.getElementById('nav-modules').classList.toggle('active', name==='modules'||name==='moduledetail');
     document.getElementById('nav-gtm').classList.toggle('active', name==='gtm');
+    document.getElementById('nav-report').classList.toggle('active', name==='report');
   }
 
   async function go(){
-    const hash=location.hash.slice(1); // '', 'sessions', 'sessions/new', 'sessions/<id>', 'modules', 'modules/<slug>', 'gtm'
+    const hash=location.hash.slice(1); // '', 'sessions', 'sessions/new', 'sessions/<id>', 'modules', 'modules/<slug>', 'gtm', 'report'
     const parts=hash.split('/').filter(Boolean);
-    if(parts[0]==='gtm'){
+    if(parts[0]==='report'){
+      showView('report');
+      await loadReport();
+    }else if(parts[0]==='gtm'){
       showView('gtm');
       await loadGtm();
     }else if(parts[0]==='modules'){
@@ -999,6 +1031,77 @@ function bootApp(storageConfigured){
       if(!res.ok){ alert(res.body.error||'Could not build go-to-market messaging.'); }
       await loadGtm();
     });
+  }
+
+  /* ---- status report (monthly board pack) ---- */
+  const SESSION_TARGET_PER_MODULE=10; /* the program's stated goal, per session type */
+
+  function pbar(count,target){
+    const pct=target>0 ? Math.round(count/target*100) : 0;
+    const fillPct=Math.min(100,pct);
+    const over=pct>=100;
+    return '<div class="pbar-row">'+
+      '<div class="pbar-track"><div class="pbar-fill'+(over?' over':'')+'" style="width:'+fillPct+'%"></div></div>'+
+      '<div class="pbar-label">'+count+' / '+target+' ('+pct+'%)</div>'+
+      '</div>';
+  }
+
+  async function loadReport(){
+    const body=document.getElementById('reportbody');
+    body.innerHTML='<p class="sub">Loading…</p>';
+    const [sessionsRes,trendsRes]=await Promise.all([api('/api/sessions'),api('/api/module-trends')]);
+    if(!sessionsRes.ok){
+      body.innerHTML='<div class="err-box">'+esc(sessionsRes.body.error||'Could not load sessions.')+'</div>';
+      return;
+    }
+    const index=sessionsRes.body.items||[];
+    const trends=(trendsRes.ok && trendsRes.body.trends) || {};
+    renderReport(index,trends);
+  }
+
+  function renderReport(index,trends){
+    const body=document.getElementById('reportbody');
+
+    const totalTarget=MODULES.length*SESSION_TARGET_PER_MODULE;
+    const totalSessions=index.length;
+
+    let totalFeatures=0,totalNow=0,totalLater=0,totalFuture=0,modulesWithTrend=0;
+    const rows=MODULES.map(function(m){
+      const count=index.filter(function(s){ return s.module===m.id; }).length;
+      const trend=trends[m.id];
+      const counts=trend&&trend.counts ? trend.counts : null;
+      if(counts){
+        modulesWithTrend++;
+        totalFeatures+=counts.total; totalNow+=counts.now; totalLater+=counts.later; totalFuture+=counts.future;
+      }
+      return {module:m,count:count,counts:counts};
+    });
+
+    body.innerHTML=
+      '<div class="panel"><h3>Overall progress</h3>'+
+        '<p class="hint" style="margin:0 0 6px">Sessions held (goal: '+SESSION_TARGET_PER_MODULE+' per session type)</p>'+
+        pbar(totalSessions,totalTarget)+
+        '<p class="hint" style="margin:16px 0 6px">Features logged across all built module trends</p>'+
+        '<p class="summary-text">'+totalFeatures+' total'+
+          (modulesWithTrend?' &middot; Now: '+totalNow+' &middot; Later: '+totalLater+' &middot; Future: '+totalFuture:'')+
+          (modulesWithTrend<MODULES.length?' <span class="hint">('+(MODULES.length-modulesWithTrend)+' session type'+(MODULES.length-modulesWithTrend===1?'':'s')+' not yet built)</span>':'')+
+        '</p>'+
+      '</div>'+
+      '<div class="panel"><h3>By session type</h3>'+
+        '<table class="datatable"><thead><tr><th>Session type</th><th>Sessions held</th><th>Features logged</th></tr></thead><tbody>'+
+        rows.map(function(r){
+          return '<tr>'+
+            '<td>'+esc(r.module.label)+'</td>'+
+            '<td style="min-width:220px">'+pbar(r.count,SESSION_TARGET_PER_MODULE)+'</td>'+
+            '<td>'+(r.counts
+              ? r.counts.total+' <span class="hint">(Now '+r.counts.now+' &middot; Later '+r.counts.later+' &middot; Future '+r.counts.future+')</span>'
+              : '<span class="hint">Trend not built yet</span>')+
+            '</td>'+
+            '</tr>';
+        }).join('')+
+        '</tbody></table>'+
+      '</div>'+
+      '<p class="hint">Generated '+esc(fmtDateTime(new Date().toISOString()))+'. Sessions held counts every logged session regardless of analysis status; features logged counts cards in each module\'s Now/Later/Future trend, current as of that trend\'s last build.</p>';
   }
 
   go();
