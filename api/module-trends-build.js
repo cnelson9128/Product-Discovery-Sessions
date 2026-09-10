@@ -4,17 +4,7 @@ const auth = require('../lib/auth');
 const store = require('../lib/store');
 const modules = require('../lib/modules');
 const moduleTrends = require('../lib/module-trends');
-
-/* Every item in feature_prioritization.now/later/future is one "card" in
-   that module's priority section — this is the count the Status Report tab
-   reports as "features logged" per module. */
-function prioritizationCounts(result) {
-  const fp = (result && result.feature_prioritization) || {};
-  const now = (fp.now || []).length;
-  const later = (fp.later || []).length;
-  const future = (fp.future || []).length;
-  return { now: now, later: later, future: future, total: now + later + future };
-}
+const trendCards = require('../lib/trend-cards');
 
 /*
  * (Re)builds the trend synthesis for one module from every currently-ready
@@ -67,6 +57,7 @@ module.exports = async function handler(req, res) {
   try {
     const generated = await moduleTrends.generateTrend(moduleLabel, sessionInputs);
     const now = new Date().toISOString();
+    const cards = trendCards.toCards(generated.result);
     const record = {
       module: moduleId,
       status: 'ready',
@@ -78,12 +69,19 @@ module.exports = async function handler(req, res) {
       lastError: null,
       lastErrorCode: null,
       lastErrorAt: null,
-      /* Counted here, once, at build time, rather than recomputed from
-         `result` on every read — the Status Report tab reads counts for all
-         11 modules at once via the summary endpoint, which strips `result`
-         to stay light, so the count needs to survive that strip. */
-      counts: prioritizationCounts(generated.result),
-      result: generated.result
+      /* Counted here, once, at build time (and again on every manual card
+         move/complete — see api/module-trends-card.js), rather than
+         recomputed from `result` on every read — the Status Report tab
+         reads counts for all 11 modules at once via the summary endpoint,
+         which strips `result` to stay light, so the count needs to survive
+         that strip. */
+      counts: trendCards.boardCounts(cards),
+      result: {
+        overview_summary: generated.result.overview_summary,
+        cards: cards,
+        adoption_blockers: generated.result.adoption_blockers,
+        gtm_messaging: generated.result.gtm_messaging
+      }
     };
     await store.writeModuleTrend(moduleId, record);
     return res.status(200).json({ ok: true, item: record });

@@ -29,8 +29,8 @@
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
   }
 }
-:root[data-theme="dark"]{ --now-bg:#2c2308; --now-ink:#e2b354; --later-bg:#122a38; --later-ink:#6cc2e8; --future-bg:#241d33; --future-ink:#b79ef0; }
-:root:not([data-theme="dark"]){ --now-bg:#fdf3e2; --now-ink:#8a5a00; --later-bg:#e7f2fb; --later-ink:#1a5f8a; --future-bg:#f2edfb; --future-ink:#5a3d99; }
+:root[data-theme="dark"]{ --launch-bg:#2c2308; --launch-ink:#e2b354; --phase2-bg:#122a38; --phase2-ink:#6cc2e8; --bau-bg:#241d33; --bau-ink:#b79ef0; }
+:root:not([data-theme="dark"]){ --launch-bg:#fdf3e2; --launch-ink:#8a5a00; --phase2-bg:#e7f2fb; --phase2-ink:#1a5f8a; --bau-bg:#f2edfb; --bau-ink:#5a3d99; }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
@@ -161,14 +161,24 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 .prioritycols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 @media (max-width:800px){.prioritycols{grid-template-columns:1fr}}
 .pcol{border-radius:12px;padding:16px}
-.pcol.now{background:var(--now-bg);color:var(--now-ink)}
-.pcol.later{background:var(--later-bg);color:var(--later-ink)}
-.pcol.future{background:var(--future-bg);color:var(--future-ink)}
+.pcol.launch{background:var(--launch-bg);color:var(--launch-ink)}
+.pcol.phase2{background:var(--phase2-bg);color:var(--phase2-ink)}
+.pcol.bau{background:var(--bau-bg);color:var(--bau-ink)}
 .pcol h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
 .pitem{background:rgba(255,255,255,.35);border-radius:8px;padding:10px 12px;margin-bottom:8px}
 :root[data-theme="dark"] .pitem{background:rgba(0,0,0,.2)}
 .pitem:last-child{margin-bottom:0}
 .pitem .rationale{font-size:12.5px;opacity:.85;margin-top:4px}
+.pitem.complete{opacity:.55}
+.pitem.complete .pitem-text{text-decoration:line-through}
+.pitem-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.pitem-text{flex:1}
+.pitem-controls{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.pitem-controls select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink)}
+.pitem-controls button{font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink-2);cursor:pointer}
+.pitem-controls button:hover{border-color:var(--accent)}
 
 .reporthead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px}
 .pbar-row{display:flex;align-items:center;gap:10px}
@@ -418,6 +428,13 @@ const MODULES=[
   {id:'websites',label:'Websites'}
 ];
 function moduleLabel(id){ const m=MODULES.find(function(x){return x.id===id}); return m?m.label:id; }
+
+/* Must match lib/trend-cards.js's BUCKETS exactly. */
+const BUCKETS=[
+  {id:'launch',label:'Launch'},
+  {id:'phase2',label:'Phase 2'},
+  {id:'bau',label:'BAU'}
+];
 
 function esc(s){
   return String(s==null?'':s).replace(/[&<>"']/g,function(c){
@@ -915,18 +932,33 @@ function bootApp(storageConfigured){
       const warn=trend.sessionCountAtBuild<3
         ? '<div class="warnpanel">Built from only '+trend.sessionCountAtBuild+' session'+(trend.sessionCountAtBuild===1?'':'s')+' — treat this as an early signal, not a settled trend.</div>'
         : '';
-      function prioCol(key,title){
-        const items=r.feature_prioritization[key]||[];
-        return '<div class="pcol '+key+'"><h4>'+title+'</h4>'+
-          (items.length ? items.map(function(it){
-            return '<div class="pitem"><div>'+esc(it.item)+'</div><div class="rationale">'+esc(it.rationale)+'</div>'+chips(it.supporting_session_ids,index)+'</div>';
-          }).join('') : '<p class="rationale">Nothing here yet.</p>')+
+      const cards=Array.isArray(r.cards) ? r.cards : [];
+      const legacyNote=(!Array.isArray(r.cards) && r.feature_prioritization)
+        ? '<p class="hint">This trend was built before card moving/completion existed — click Refresh trend to rebuild it onto the new board.</p>'
+        : '';
+      function renderCard(c){
+        return '<div class="pitem'+(c.complete?' complete':'')+'">'+
+          '<div class="pitem-head"><div class="pitem-text">'+esc(c.item)+'</div></div>'+
+          '<div class="rationale">'+esc(c.rationale)+'</div>'+
+          chips(c.supporting_session_ids,index)+
+          '<div class="pitem-controls">'+
+            '<select class="movesel" data-card-id="'+esc(c.id)+'">'+
+              BUCKETS.map(function(b){ return '<option value="'+b.id+'"'+(b.id===c.bucket?' selected':'')+'>'+esc(b.label)+'</option>'; }).join('')+
+            '</select>'+
+            '<button type="button" class="completebtn" data-card-id="'+esc(c.id)+'" data-complete="'+(c.complete?'0':'1')+'">'+(c.complete?'Reopen':'Mark complete')+'</button>'+
+          '</div>'+
         '</div>';
       }
-      content=warn+
+      function prioCol(bucket,title){
+        const items=cards.filter(function(c){ return c.bucket===bucket; });
+        return '<div class="pcol '+bucket+'"><h4>'+title+'</h4>'+
+          (items.length ? items.map(renderCard).join('') : '<p class="rationale">Nothing here yet.</p>')+
+        '</div>';
+      }
+      content=warn+legacyNote+
         '<div class="panel"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
         '<div class="panel"><h3>Feature prioritization</h3><div class="prioritycols">'+
-          prioCol('now','Now')+prioCol('later','Later')+prioCol('future','Future')+
+          prioCol('launch','Launch')+prioCol('phase2','Phase 2')+prioCol('bau','BAU')+
         '</div></div>'+
         '<div class="panel"><h3>Adoption blockers</h3>'+listOrEmpty(r.adoption_blockers,function(b){
           return '<li>'+esc(b.blocker)+'<div class="evi">'+esc(b.impact)+'</div>'+chips(b.supporting_session_ids,index)+'</li>';
@@ -955,10 +987,34 @@ function bootApp(storageConfigured){
 
     const refreshBtn=document.getElementById('refreshtrendbtn');
     if(refreshBtn) refreshBtn.addEventListener('click',async function(){
+      const hasCards=trend && trend.result && Array.isArray(trend.result.cards) && trend.result.cards.length>0;
+      if(hasCards && !confirm('Refreshing regenerates every card from scratch — any manual bucket moves or completions will be lost. Continue?')) return;
       refreshBtn.disabled=true; refreshBtn.textContent='Building…';
       const res=await api('/api/module-trends-build',{method:'POST',body:JSON.stringify({module:moduleId})});
       if(!res.ok){ alert(res.body.error||'Could not build the trend.'); }
       await openModuleDetail(moduleId);
+    });
+
+    body.querySelectorAll('.movesel').forEach(function(sel){
+      sel.addEventListener('change',async function(){
+        sel.disabled=true;
+        const res=await api('/api/module-trends-card',{method:'POST',body:JSON.stringify({
+          module:moduleId,cardId:sel.dataset.cardId,action:'move',bucket:sel.value
+        })});
+        if(!res.ok){ alert(res.body.error||'Could not move the card.'); }
+        await openModuleDetail(moduleId);
+      });
+    });
+    body.querySelectorAll('.completebtn').forEach(function(btn){
+      btn.addEventListener('click',async function(){
+        btn.disabled=true;
+        const action=btn.dataset.complete==='1' ? 'complete' : 'reopen';
+        const res=await api('/api/module-trends-card',{method:'POST',body:JSON.stringify({
+          module:moduleId,cardId:btn.dataset.cardId,action:action
+        })});
+        if(!res.ok){ alert(res.body.error||'Could not update the card.'); }
+        await openModuleDetail(moduleId);
+      });
     });
   }
 
@@ -1065,14 +1121,15 @@ function bootApp(storageConfigured){
     const totalTarget=MODULES.length*SESSION_TARGET_PER_MODULE;
     const totalSessions=index.length;
 
-    let totalFeatures=0,totalNow=0,totalLater=0,totalFuture=0,modulesWithTrend=0;
+    let totalFeatures=0,totalComplete=0,totalLaunch=0,totalPhase2=0,totalBau=0,modulesWithTrend=0;
     const rows=MODULES.map(function(m){
       const count=index.filter(function(s){ return s.module===m.id; }).length;
       const trend=trends[m.id];
       const counts=trend&&trend.counts ? trend.counts : null;
       if(counts){
         modulesWithTrend++;
-        totalFeatures+=counts.total; totalNow+=counts.now; totalLater+=counts.later; totalFuture+=counts.future;
+        totalFeatures+=counts.total; totalComplete+=counts.complete||0;
+        totalLaunch+=counts.launch; totalPhase2+=counts.phase2; totalBau+=counts.bau;
       }
       return {module:m,count:count,counts:counts};
     });
@@ -1082,8 +1139,8 @@ function bootApp(storageConfigured){
         '<p class="hint" style="margin:0 0 6px">Sessions held (goal: '+SESSION_TARGET_PER_MODULE+' per session type)</p>'+
         pbar(totalSessions,totalTarget)+
         '<p class="hint" style="margin:16px 0 6px">Features logged across all built module trends</p>'+
-        '<p class="summary-text">'+totalFeatures+' total'+
-          (modulesWithTrend?' &middot; Now: '+totalNow+' &middot; Later: '+totalLater+' &middot; Future: '+totalFuture:'')+
+        '<p class="summary-text">'+totalFeatures+' total, '+totalComplete+' complete'+
+          (modulesWithTrend?' &middot; Launch: '+totalLaunch+' &middot; Phase 2: '+totalPhase2+' &middot; BAU: '+totalBau:'')+
           (modulesWithTrend<MODULES.length?' <span class="hint">('+(MODULES.length-modulesWithTrend)+' session type'+(MODULES.length-modulesWithTrend===1?'':'s')+' not yet built)</span>':'')+
         '</p>'+
       '</div>'+
@@ -1094,14 +1151,14 @@ function bootApp(storageConfigured){
             '<td>'+esc(r.module.label)+'</td>'+
             '<td style="min-width:220px">'+pbar(r.count,SESSION_TARGET_PER_MODULE)+'</td>'+
             '<td>'+(r.counts
-              ? r.counts.total+' <span class="hint">(Now '+r.counts.now+' &middot; Later '+r.counts.later+' &middot; Future '+r.counts.future+')</span>'
+              ? r.counts.total+' total, '+(r.counts.complete||0)+' complete <span class="hint">(Launch '+r.counts.launch+' &middot; Phase 2 '+r.counts.phase2+' &middot; BAU '+r.counts.bau+')</span>'
               : '<span class="hint">Trend not built yet</span>')+
             '</td>'+
             '</tr>';
         }).join('')+
         '</tbody></table>'+
       '</div>'+
-      '<p class="hint">Generated '+esc(fmtDateTime(new Date().toISOString()))+'. Sessions held counts every logged session regardless of analysis status; features logged counts cards in each module\'s Now/Later/Future trend, current as of that trend\'s last build.</p>';
+      '<p class="hint">Generated '+esc(fmtDateTime(new Date().toISOString()))+'. Sessions held counts every logged session regardless of analysis status; features logged counts cards in each module\'s Launch/Phase 2/BAU board, including any manual moves or completions made since the trend was last built — a full rebuild replaces the cards themselves and resets those.</p>';
   }
 
   go();

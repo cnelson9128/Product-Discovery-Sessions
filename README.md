@@ -163,12 +163,15 @@ everything else (sign-in, navigation, forms) still works.
    + module filters.
 5. **Modules** (top nav) lists all 11 session types with their analyzed/total session counts and trend
    status. Once a module has at least one analyzed session, **Build trend** synthesizes its feature
-   prioritization (now/later/future), adoption blockers, and draft messaging from every analyzed
-   session tagged to it — worth more with several sessions, and re-runnable any time as more land
-   (**Refresh trend**, with a badge showing how many sessions have been added or removed/reassigned
-   since the last build). Every prioritized item and blocker links back to the specific sessions that
-   support it (resolved to client name + date, never written into the generated text itself — see
-   the anti-fabrication note below).
+   prioritization — one card per feature, sorted into **Launch** / **Phase 2** / **BAU** — adoption
+   blockers, and draft messaging from every analyzed session tagged to it — worth more with several
+   sessions, and re-runnable any time as more land (**Refresh trend**, with a badge showing how many
+   sessions have been added or removed/reassigned since the last build; refreshing regenerates every
+   card from scratch, so you're warned before it discards any moves/completions you've made). Every
+   card links back to the specific sessions that support it (resolved to client name + date, never
+   written into the generated text itself — see the anti-fabrication note below). Each card can be
+   **moved to a different bucket** (a dropdown on the card) or **marked complete** — both save
+   immediately and update the Status Report's counts right away, independent of the next rebuild.
 6. **Go-to-Market** (top nav) is the same idea one level up: built from every analyzed session across
    *all* modules at once, not scoped to one. **Build**/**Refresh** synthesizes an overall positioning
    statement, value pillars, proof points, objection handling, and a one-line highlight per module
@@ -176,13 +179,14 @@ everything else (sign-in, navigation, forms) still works.
    a single session's one-off comment shows up in that module's own trend rather than here.
 7. **Status Report** (top nav) is a monthly-board-pack-shaped snapshot: sessions held per session
    type against the program's goal of 10 each (with a progress bar and %), the overall total against
-   the sum of those targets, and how many prioritized features ("cards" in a module's Now/Later/
-   Future columns) each module's trend has surfaced so far. **Print / save as PDF** hides the nav and
-   buttons for a clean printout. This reads existing data only — session counts come straight from
-   the dashboard's own session list, and feature counts are recorded once, at trend-build time (see
-   `counts` in the data model below), so nothing needs to be rebuilt just to view the report; feature
-   counts are only as current as each module's last trend build, same as the Modules page's own
-   staleness indicator.
+   the sum of those targets, and how many prioritized features ("cards" in a module's Launch/Phase 2/
+   BAU board) each module's trend has surfaced, including how many are marked complete. **Print /
+   save as PDF** hides the nav and buttons for a clean printout. This reads existing data only —
+   session counts come straight from the dashboard's own session list, and feature counts come from
+   each module's `counts` (see the data model below), which is recomputed after every card move or
+   completion, not just at build time — so the report reflects manual board edits immediately,
+   without needing a rebuild. A rebuild is the one thing that resets it, since it replaces the cards
+   themselves.
 
 **Managed client list, not free text.** ~10 clients are each expected to generate many sessions over
 the program, so — same reasoning as the fixed module list — clients are chosen from a small managed
@@ -226,6 +230,7 @@ api/             serverless functions (zero-config, picked up by Vercel)
   sessions-analyze.js     generates/regenerates a session's 11-question analysis — longer maxDuration
   module-trends.js        module trend metadata/detail (GET) — session required
   module-trends-build.js  (re)builds a module's trend from its analyzed sessions — longer maxDuration
+  module-trends-card.js   moves a card to a different bucket, or marks it complete/reopened — session required
   gtm-messaging.js        overall go-to-market record (GET) — session required
   gtm-messaging-build.js  (re)builds it from every analyzed session across all modules — longer maxDuration
   parse-transcript.js     .docx -> plain text via mammoth — session required
@@ -234,10 +239,13 @@ lib/             never served over HTTP
   store.js             Redis REST access — sessions, clients, module trends, the gtm record, login throttling
   modules.js            the 11 fixed session types (id + label) and validation
   analysis.js           builds the per-session 11-question analysis prompt
-  module-trends.js       builds the per-module trend synthesis prompt
+  module-trends.js       builds the per-module trend synthesis prompt (still generates now/later/future —
+                          see lib/trend-cards.js for why that's not what gets persisted)
+  trend-cards.js          the board shape a trend's feature prioritization is persisted/edited as: flat
+                          cards with a stable id, a mutable bucket (launch/phase2/bau), and complete
   gtm-messaging.js        builds the overall, cross-module go-to-market synthesis prompt
   anthropic-client.js    shared streaming call + error handling, used by all three prompt files above
-vercel.json      static root, security headers, all three long-running endpoints' maxDuration
+vercel.json      static root, security headers, all three long-running build endpoints' maxDuration
 package.json     pins Node 22. One dependency (mammoth). No build script.
 ```
 
@@ -255,7 +263,7 @@ IP — 10 in 15 minutes — when Redis is linked.
 | `pds:session:index` | Lightweight metadata (incl. `module`) for every session — no transcript, no analysis. What the dashboard and module-count views read. |
 | `pds:session:<id>` | One session's full record: metadata, transcript, and the 11-question analysis. Fetched only when that session's detail view is opened, or when building a module trend. |
 | `pds:clients` | A JSON array of managed client names. |
-| `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, `counts` (now/later/future/total card counts, computed once at build time — what the Status Report reads), and the synthesized result. |
+| `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, `counts` (launch/phase2/bau/total/complete card counts, recomputed after every build and every manual card move/complete — what the Status Report reads), and the synthesized result, whose `cards` array is the editable Launch/Phase 2/BAU board itself (each card: `id`, `item`, `rationale`, `supporting_session_ids`, `bucket`, `complete`). |
 | `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |
 
 Two Redis keys per session (index + full record), not one blob: transcripts can run to tens of
