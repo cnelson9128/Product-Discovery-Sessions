@@ -433,7 +433,7 @@ function moduleLabel(id){ const m=MODULES.find(function(x){return x.id===id}); r
 const BUCKETS=[
   {id:'launch',label:'Launch'},
   {id:'phase2',label:'Phase 2'},
-  {id:'bau',label:'BAU'}
+  {id:'bau',label:'Future Considerations'}
 ];
 
 function esc(s){
@@ -958,7 +958,7 @@ function bootApp(storageConfigured){
       content=warn+legacyNote+
         '<div class="panel"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
         '<div class="panel"><h3>Feature prioritization</h3><div class="prioritycols">'+
-          prioCol('launch','Launch')+prioCol('phase2','Phase 2')+prioCol('bau','BAU')+
+          prioCol('launch','Launch')+prioCol('phase2','Phase 2')+prioCol('bau','Future Considerations')+
         '</div></div>'+
         '<div class="panel"><h3>Adoption blockers</h3>'+listOrEmpty(r.adoption_blockers,function(b){
           return '<li>'+esc(b.blocker)+'<div class="evi">'+esc(b.impact)+'</div>'+chips(b.supporting_session_ids,index)+'</li>';
@@ -1140,7 +1140,7 @@ function bootApp(storageConfigured){
         pbar(totalSessions,totalTarget)+
         '<p class="hint" style="margin:16px 0 6px">Features logged across all built module trends</p>'+
         '<p class="summary-text">'+totalFeatures+' total, '+totalComplete+' complete'+
-          (modulesWithTrend?' &middot; Launch: '+totalLaunch+' &middot; Phase 2: '+totalPhase2+' &middot; BAU: '+totalBau:'')+
+          (modulesWithTrend?' &middot; Launch: '+totalLaunch+' &middot; Phase 2: '+totalPhase2+' &middot; Future Considerations: '+totalBau:'')+
           (modulesWithTrend<MODULES.length?' <span class="hint">('+(MODULES.length-modulesWithTrend)+' session type'+(MODULES.length-modulesWithTrend===1?'':'s')+' not yet built)</span>':'')+
         '</p>'+
       '</div>'+
@@ -1151,14 +1151,14 @@ function bootApp(storageConfigured){
             '<td>'+esc(r.module.label)+'</td>'+
             '<td style="min-width:220px">'+pbar(r.count,SESSION_TARGET_PER_MODULE)+'</td>'+
             '<td>'+(r.counts
-              ? r.counts.total+' total, '+(r.counts.complete||0)+' complete <span class="hint">(Launch '+r.counts.launch+' &middot; Phase 2 '+r.counts.phase2+' &middot; BAU '+r.counts.bau+')</span>'
+              ? r.counts.total+' total, '+(r.counts.complete||0)+' complete <span class="hint">(Launch '+r.counts.launch+' &middot; Phase 2 '+r.counts.phase2+' &middot; Future Considerations '+r.counts.bau+')</span>'
               : '<span class="hint">Trend not built yet</span>')+
             '</td>'+
             '</tr>';
         }).join('')+
         '</tbody></table>'+
       '</div>'+
-      '<p class="hint">Generated '+esc(fmtDateTime(new Date().toISOString()))+'. Sessions held counts every logged session regardless of analysis status; features logged counts cards in each module\'s Launch/Phase 2/BAU board, including any manual moves or completions made since the trend was last built — a full rebuild replaces the cards themselves and resets those.</p>';
+      '<p class="hint">Generated '+esc(fmtDateTime(new Date().toISOString()))+'. Sessions held counts every logged session regardless of analysis status; features logged counts cards in each module\'s Launch/Phase 2/Future Considerations board, including any manual moves or completions made since the trend was last built — a full rebuild replaces the cards themselves and resets those.</p>';
   }
 
   go();
