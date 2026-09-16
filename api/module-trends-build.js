@@ -78,6 +78,7 @@ module.exports = async function handler(req, res) {
       counts: trendCards.boardCounts(cards),
       result: {
         overview_summary: generated.result.overview_summary,
+        value_moments: generated.result.value_moments,
         cards: cards,
         adoption_blockers: generated.result.adoption_blockers,
         gtm_messaging: generated.result.gtm_messaging

@@ -957,8 +957,18 @@ function bootApp(storageConfigured){
           (items.length ? items.map(renderCard).join('') : '<p class="rationale">Nothing here yet.</p>')+
         '</div>';
       }
+      const valueMoments=Array.isArray(r.value_moments) ? r.value_moments : null;
+      const valueMomentsBlock=valueMoments===null
+        ? '<div class="panel"><h3>Value created</h3><p class="hint">This trend was built before Value created existed — click Refresh trend to populate it (this won\'t touch any cards on the board below).</p></div>'
+        : '<div class="panel"><h3>Value created</h3>'+
+            (valueMoments.length ? valueMoments.map(function(v){
+              return '<div style="margin-bottom:14px"><p class="pullquote">"'+esc(v.quote)+'"</p>'+
+                '<div class="evi">'+esc(v.theme)+'</div>'+chips(v.supporting_session_ids,index)+'</div>';
+            }).join('') : '<p class="sub" style="margin:0">No standout "wow" moments surfaced yet for this module.</p>')+
+          '</div>';
       content=warn+legacyNote+
         '<div class="panel"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
+        valueMomentsBlock+
         '<div class="panel"><h3>Feature prioritization</h3><div class="prioritycols">'+
           prioCol('launch','Launch')+prioCol('phase2','Phase 2')+prioCol('bau','Future Considerations')+
         '</div></div>'+

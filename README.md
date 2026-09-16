@@ -162,8 +162,11 @@ everything else (sign-in, navigation, forms) still works.
 4. The dashboard lists every session with its module, a status badge (Draft/Ready/Error), and text
    + module filters.
 5. **Modules** (top nav) lists all 11 session types with their analyzed/total session counts and trend
-   status. Once a module has at least one analyzed session, **Build trend** synthesizes its feature
-   prioritization — one card per feature, sorted into **Launch** / **Phase 2** / **Future Considerations** — adoption
+   status. Once a module has at least one analyzed session, **Build trend** synthesizes a **Value
+   created** section (standout "wow" quotes pulled from sessions' own value-created statements and
+   one-sentence pitches — a single striking reaction is enough to earn a spot here, unlike the
+   prioritization buckets below, which need to recur across sessions), its feature prioritization —
+   one card per feature, sorted into **Launch** / **Phase 2** / **Future Considerations** — adoption
    blockers, and draft messaging from every analyzed session tagged to it — worth more with several
    sessions, and re-runnable any time as more land (**Refresh trend**, with a badge showing how many
    sessions have been added or removed/reassigned since the last build; refreshing regenerates every
@@ -265,7 +268,7 @@ IP — 10 in 15 minutes — when Redis is linked.
 | `pds:session:index` | Lightweight metadata (incl. `module`) for every session — no transcript, no analysis. What the dashboard and module-count views read. |
 | `pds:session:<id>` | One session's full record: metadata, transcript, and the 11-question analysis. Fetched only when that session's detail view is opened, or when building a module trend. |
 | `pds:clients` | A JSON array of managed client names. |
-| `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, `counts` (launch/phase2/bau/total/complete card counts, recomputed after every build and every manual card move/complete — what the Status Report reads), and the synthesized result, whose `cards` array is the editable Launch/Phase 2/Future Considerations board itself (each card: `id`, `item`, `rationale`, `supporting_session_ids`, `bucket` — still `launch`/`phase2`/`bau` internally, only the display label changed — and `complete`). |
+| `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, `counts` (launch/phase2/bau/total/complete card counts, recomputed after every build and every manual card move/complete — what the Status Report reads), and the synthesized result — `value_moments` (the "wow" quotes) plus a `cards` array, the editable Launch/Phase 2/Future Considerations board itself (each card: `id`, `item`, `rationale`, `supporting_session_ids`, `bucket` — still `launch`/`phase2`/`bau` internally, only the display label changed — and `complete`). |
 | `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |
 
 Two Redis keys per session (index + full record), not one blob: transcripts can run to tens of
