@@ -6,11 +6,14 @@ const modules = require('../lib/modules');
 const trendCards = require('../lib/trend-cards');
 
 /*
- * Moves a card to a different bucket, or marks it complete/incomplete. Split
- * from api/module-trends-build.js because this is a plain Redis
- * read-modify-write on an already-built trend — no LLM call, no special
- * maxDuration — while a build is the expensive operation that produces the
- * cards this endpoint only ever rearranges.
+ * Moves a card to a different bucket, marks it complete/incomplete, or
+ * removes it from the board entirely. Split from api/module-trends-build.js
+ * because this is a plain Redis read-modify-write on an already-built trend
+ * — no LLM call, no special maxDuration — while a build is the expensive
+ * operation that produces the cards this endpoint only ever rearranges.
+ *
+ * A deleted card is gone until the next full rebuild regenerates the board
+ * from scratch — there's no undo, same as deleting a session.
  */
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -57,6 +60,8 @@ module.exports = async function handler(req, res) {
     card.complete = true;
   } else if (body.action === 'reopen') {
     card.complete = false;
+  } else if (body.action === 'delete') {
+    trend.result.cards = trend.result.cards.filter(function (c) { return c.id !== body.cardId; });
   } else {
     return res.status(400).json({ error: 'Unknown action.' });
   }

@@ -179,6 +179,7 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 .pitem-controls button{font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);
   background:var(--panel);color:var(--ink-2);cursor:pointer}
 .pitem-controls button:hover{border-color:var(--accent)}
+.pitem-controls button.removebtn:hover{border-color:var(--crit-ink);color:var(--crit-ink)}
 
 .reporthead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px}
 .pbar-row{display:flex;align-items:center;gap:10px}
@@ -946,6 +947,7 @@ function bootApp(storageConfigured){
               BUCKETS.map(function(b){ return '<option value="'+b.id+'"'+(b.id===c.bucket?' selected':'')+'>'+esc(b.label)+'</option>'; }).join('')+
             '</select>'+
             '<button type="button" class="completebtn" data-card-id="'+esc(c.id)+'" data-complete="'+(c.complete?'0':'1')+'">'+(c.complete?'Reopen':'Mark complete')+'</button>'+
+            '<button type="button" class="removebtn" data-card-id="'+esc(c.id)+'">Remove</button>'+
           '</div>'+
         '</div>';
       }
@@ -1013,6 +1015,17 @@ function bootApp(storageConfigured){
           module:moduleId,cardId:btn.dataset.cardId,action:action
         })});
         if(!res.ok){ alert(res.body.error||'Could not update the card.'); }
+        await openModuleDetail(moduleId);
+      });
+    });
+    body.querySelectorAll('.removebtn').forEach(function(btn){
+      btn.addEventListener('click',async function(){
+        if(!confirm('Remove this card from the board? This cannot be undone until the trend is next rebuilt.')) return;
+        btn.disabled=true;
+        const res=await api('/api/module-trends-card',{method:'POST',body:JSON.stringify({
+          module:moduleId,cardId:btn.dataset.cardId,action:'delete'
+        })});
+        if(!res.ok){ alert(res.body.error||'Could not remove the card.'); }
         await openModuleDetail(moduleId);
       });
     });

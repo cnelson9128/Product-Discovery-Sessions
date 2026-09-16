@@ -170,8 +170,9 @@ everything else (sign-in, navigation, forms) still works.
    card from scratch, so you're warned before it discards any moves/completions you've made). Every
    card links back to the specific sessions that support it (resolved to client name + date, never
    written into the generated text itself — see the anti-fabrication note below). Each card can be
-   **moved to a different bucket** (a dropdown on the card) or **marked complete** — both save
-   immediately and update the Status Report's counts right away, independent of the next rebuild.
+   **moved to a different bucket** (a dropdown on the card), **marked complete**, or **removed**
+   entirely (with a confirmation, since there's no undo until the trend is next rebuilt) — all three
+   save immediately and update the Status Report's counts right away, independent of the next rebuild.
 6. **Go-to-Market** (top nav) is the same idea one level up: built from every analyzed session across
    *all* modules at once, not scoped to one. **Build**/**Refresh** synthesizes an overall positioning
    statement, value pillars, proof points, objection handling, and a one-line highlight per module
@@ -231,7 +232,7 @@ api/             serverless functions (zero-config, picked up by Vercel)
   sessions-analyze.js     generates/regenerates a session's 11-question analysis — longer maxDuration
   module-trends.js        module trend metadata/detail (GET) — session required
   module-trends-build.js  (re)builds a module's trend from its analyzed sessions — longer maxDuration
-  module-trends-card.js   moves a card to a different bucket, or marks it complete/reopened — session required
+  module-trends-card.js   moves, completes/reopens, or removes a card — session required
   gtm-messaging.js        overall go-to-market record (GET) — session required
   gtm-messaging-build.js  (re)builds it from every analyzed session across all modules — longer maxDuration
   parse-transcript.js     .docx -> plain text via mammoth — session required
