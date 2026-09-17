@@ -7,12 +7,19 @@ validation questions (today's process, value created, who benefits,
 adoption blockers, v1 vs v2, trust concerns, migration blockers/conditions, top priority
 improvement, success metric, one-sentence pitch). Every session's transcript is analyzed into
 structured answers to those 11 questions, and once a module has multiple analyzed sessions its
-answers can be synthesized on demand into a **module trend** — feature prioritization
-(now/later/future), adoption blockers, and draft messaging specific to that one module. A level
-above that, a **Go-to-Market view** synthesizes across every analyzed session in every module at
-once — one overall positioning statement, value pillars, proof points, objection handling, and a
+answers can be synthesized on demand into a **module trend** — standout "wow" quotes, feature
+prioritization, adoption blockers, and draft messaging specific to that one module. A level above
+that, a **Go-to-Market view** synthesizes across every analyzed session in every module at once —
+one overall positioning statement, value pillars, proof points, objection handling, and a
 per-module highlight reel, built only from what recurs across more than one customer or module
 rather than any single session's one-off comment.
+
+This is also the team's **roadmap prioritization board**: every feature a trend surfaces becomes a
+persistent, independently-editable card — given an owner, tracked through Launch / Phase 2 /
+Future Considerations, marked requirements-done and/or complete, and movable to a different module
+entirely — that survives every future trend rebuild rather than being regenerated from scratch. A
+**Quote Wall** pulls every module's "wow" quotes into one place, and a **Reports** dashboard gives
+the monthly board pack a real breakdown of features by status per module.
 
 Distinct from the sibling `competitor-analysis` repo's sales-facing demo-prep tool — this is PM/
 research interviews about product needs, not sales calls. A static shell in `public/`, plus
@@ -109,6 +116,8 @@ Replace `<domain>` and run these. The first two are the ones that matter.
 curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/sessions       # expect 401
 curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/clients        # expect 401
 curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/module-trends  # expect 401
+curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/features       # expect 401
+curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/quote-wall     # expect 401
 curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/gtm-messaging  # expect 401
 curl -s https://<domain>/ | grep -ci "customer"                              # expect 0
 ```
@@ -165,33 +174,36 @@ everything else (sign-in, navigation, forms) still works.
    status. Once a module has at least one analyzed session, **Build trend** synthesizes a **Value
    created** section (standout "wow" quotes pulled from sessions' own value-created statements and
    one-sentence pitches — a single striking reaction is enough to earn a spot here, unlike the
-   prioritization buckets below, which need to recur across sessions), its feature prioritization —
-   one card per feature, sorted into **Launch** / **Phase 2** / **Future Considerations** — adoption
-   blockers, and draft messaging from every analyzed session tagged to it — worth more with several
-   sessions, and re-runnable any time as more land (**Refresh trend**, with a badge showing how many
-   sessions have been added or removed/reassigned since the last build; refreshing regenerates every
-   card from scratch, so you're warned before it discards any moves/completions you've made). Every
-   card links back to the specific sessions that support it (resolved to client name + date, never
-   written into the generated text itself — see the anti-fabrication note below). Each card can be
-   **moved to a different bucket** (a dropdown on the card), **marked complete**, or **removed**
-   entirely (with a confirmation, since there's no undo until the trend is next rebuilt) — all three
-   save immediately and update the Status Report's counts right away, independent of the next rebuild.
-6. **Go-to-Market** (top nav) is the same idea one level up: built from every analyzed session across
-   *all* modules at once, not scoped to one. **Build**/**Refresh** synthesizes an overall positioning
-   statement, value pillars, proof points, objection handling, and a one-line highlight per module
-   that has enough signal to support one — each grounded across more than one customer or module, so
-   a single session's one-off comment shows up in that module's own trend rather than here.
-7. **Status Report** (top nav) is a monthly-board-pack-shaped snapshot: sessions held per session
-   type against the program's goal of 10 each (with a progress bar and %), the overall total against
-   the sum of those targets, and how many prioritized features ("cards" in a module's Launch/Phase 2/
-   Future Considerations board) each module's trend has surfaced, including how many are marked
-   complete. **Print /
-   save as PDF** hides the nav and buttons for a clean printout. This reads existing data only —
-   session counts come straight from the dashboard's own session list, and feature counts come from
-   each module's `counts` (see the data model below), which is recomputed after every card move or
-   completion, not just at build time — so the report reflects manual board edits immediately,
-   without needing a rebuild. A rebuild is the one thing that resets it, since it replaces the cards
-   themselves.
+   prioritization buckets below, which need to recur across sessions), feature prioritization — one
+   card per feature, sorted into **Launch** / **Phase 2** / **Future Considerations** — adoption
+   blockers, and draft messaging from every analyzed session tagged to it. **This is purely
+   additive**: building or refreshing a trend only ever *adds* newly-surfaced feature cards — it
+   never touches, moves, or resets a card already on the board, no matter how many times you
+   rebuild. Every card links back to the specific sessions that support it (resolved to client name
+   + date, never written into the generated text itself — see the anti-fabrication note below), and
+   carries controls to:
+   - **Move it to a different bucket**, or **to a different module entirely** (two dropdowns).
+   - **Assign an owner** (free text, inline on the card).
+   - **Mark requirements done** (a checkbox — independent of delivery) and/or **mark complete**.
+   - **Remove it** from the board (with a confirmation — this one has no undo).
+
+   All of these save immediately, independent of any rebuild.
+6. **Quote Wall** (top nav) pulls every module's "wow" quotes into one place, each attributed to a
+   client name + date resolved from session data — the same anti-fabrication resolution used
+   everywhere else, never text the model wrote itself.
+7. **Go-to-Market** (top nav) is the same synthesis idea one level up: built from every analyzed
+   session across *all* modules at once, not scoped to one. **Build**/**Refresh** synthesizes an
+   overall positioning statement, value pillars, proof points, objection handling, and a one-line
+   highlight per module that has enough signal to support one — each grounded across more than one
+   customer or module, so a single session's one-off comment shows up in that module's own trend
+   rather than here.
+8. **Reports** (top nav) is the monthly board pack: sessions held per session type against the
+   program's goal of 10 each (with a progress bar and %), the overall total against the sum of
+   those targets, and a stacked-bar breakdown of every module's roadmap features by bucket, plus how
+   many are requirements-done/complete. **Print / save as PDF** hides the nav and buttons for a
+   clean printout. Feature data is live — it reflects the current board (any bucket move, module
+   move, owner, or completion) at the moment you open the tab, not a snapshot from the last trend
+   build.
 
 **Managed client list, not free text.** ~10 clients are each expected to generate many sessions over
 the program, so — same reasoning as the fixed module list — clients are chosen from a small managed
@@ -204,13 +216,16 @@ generate the per-session analysis, and everything is stored in the same Redis st
 upload additionally passes through this app's own server (never a third party) to be converted to
 text. Don't paste anything into it that shouldn't leave the building.
 
-**Neither trend view ever writes a client name into generated text.** Both the module-trend and the
-Go-to-Market synthesis prompts are given each session's client name only so they can reason about
-which distinct customers said what, but every output item cites `supporting_session_ids` instead of
-naming anyone — the frontend resolves those to client/date chips from data it already trusts (the
-session list), not from model recall. This avoids a real attribution-error risk once synthesizing
-across many sessions, and makes messaging drafts structurally incapable of leaking a client name
-into copy that might get reused externally.
+**No synthesis prompt ever writes a client name into generated text** — the module-trend and
+Go-to-Market prompts, and the Quote Wall's underlying data. Each is given a session's client name
+only so it can reason about which distinct customers said what, but every output item cites
+`supporting_session_ids` instead of naming anyone — the frontend resolves those to client/date
+chips from data it already trusts (the session list), not from model recall. A "wow" quote is
+constrained to cite exactly one session id, since it's meant to be one person's specific reaction —
+this is what lets the Quote Wall show unambiguous "who said this" attribution without ever trusting
+the model to write a name. This avoids a real attribution-error risk once synthesizing across many
+sessions, and makes messaging drafts structurally incapable of leaking a client name into copy that
+might get reused externally.
 
 **Cost**, at `claude-opus-5` rates: roughly a few cents per session analysis, and a similar order of
 magnitude per module-trend or Go-to-Market build depending on how many sessions feed it (the
@@ -224,7 +239,7 @@ in — acceptable for a small internal tool, worth revisiting if usage patterns 
 ```
 public/
   index.html     shell: sign-in screen + dashboard + new-session form + session detail +
-                  modules overview + module trend detail + go-to-market view + status report.
+                  modules overview + module trend detail + quote wall + go-to-market view + reports.
   robots.txt
 api/             serverless functions (zero-config, picked up by Vercel)
   login.js                password -> role-less signed HttpOnly cookie
@@ -234,20 +249,26 @@ api/             serverless functions (zero-config, picked up by Vercel)
   sessions.js             list/detail (GET) + create/update/delete (POST) — session required
   sessions-analyze.js     generates/regenerates a session's 11-question analysis — longer maxDuration
   module-trends.js        module trend metadata/detail (GET) — session required
-  module-trends-build.js  (re)builds a module's trend from its analyzed sessions — longer maxDuration
-  module-trends-card.js   moves, completes/reopens, or removes a card — session required
+  module-trends-build.js  (re)builds a module's trend, purely additive to the feature board — longer maxDuration
+  features.js             CRUD for roadmap feature cards: list/filter (GET), update/delete (POST) — session required
+  quote-wall.js           every module's "wow" quotes in one response (GET) — session required
   gtm-messaging.js        overall go-to-market record (GET) — session required
   gtm-messaging-build.js  (re)builds it from every analyzed session across all modules — longer maxDuration
   parse-transcript.js     .docx -> plain text via mammoth — session required
+  admin-migrate-features.js  one-time, idempotent: migrates any pre-upgrade trend's embedded cards
+                          into pds:feature:index — see "Upgrading" below
 lib/             never served over HTTP
   auth.js              HMAC session tokens, constant-time password check, single shared password
-  store.js             Redis REST access — sessions, clients, module trends, the gtm record, login throttling
+  store.js             Redis REST access — sessions, clients, roadmap features, module trends, the
+                       gtm record, login throttling
   modules.js            the 11 fixed session types (id + label) and validation
   analysis.js           builds the per-session 11-question analysis prompt
-  module-trends.js       builds the per-module trend synthesis prompt (still generates now/later/future —
-                          see lib/trend-cards.js for why that's not what gets persisted)
-  trend-cards.js          the board shape a trend's feature prioritization is persisted/edited as: flat
-                          cards with a stable id, a mutable bucket (launch/phase2/bau), and complete
+  module-trends.js       builds the per-module trend synthesis prompt — still generates now/later/
+                          future internally (a sensible LLM vocabulary), converted to this program's
+                          real bucket names (launch/phase2/bau) at persist time
+  trend-cards.js          converts a trend's raw model output into candidate roadmap-feature items;
+                          validates bucket ids. Has no opinion on id/owner/complete/requirementsDone —
+                          those belong to the persisted feature record, not any one build's output
   gtm-messaging.js        builds the overall, cross-module go-to-market synthesis prompt
   anthropic-client.js    shared streaming call + error handling, used by all three prompt files above
 vercel.json      static root, security headers, all three long-running build endpoints' maxDuration
@@ -268,7 +289,8 @@ IP — 10 in 15 minutes — when Redis is linked.
 | `pds:session:index` | Lightweight metadata (incl. `module`) for every session — no transcript, no analysis. What the dashboard and module-count views read. |
 | `pds:session:<id>` | One session's full record: metadata, transcript, and the 11-question analysis. Fetched only when that session's detail view is opened, or when building a module trend. |
 | `pds:clients` | A JSON array of managed client names. |
-| `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, `counts` (launch/phase2/bau/total/complete card counts, recomputed after every build and every manual card move/complete — what the Status Report reads), and the synthesized result — `value_moments` (the "wow" quotes) plus a `cards` array, the editable Launch/Phase 2/Future Considerations board itself (each card: `id`, `item`, `rationale`, `supporting_session_ids`, `bucket` — still `launch`/`phase2`/`bau` internally, only the display label changed — and `complete`). |
+| `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, item, rationale, supporting_session_ids}` (model-authored, never user-editable) plus `{bucket, owner, complete, requirementsDone}` (user-editable via `api/features.js`) and `createdAt`/`updatedAt`. `module` is mutable — reassigning it *is* "move between modules." |
+| `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, and the synthesized result — `overview_summary`, `value_moments` (the "wow" quotes, each citing exactly one session id), `adoption_blockers`, `gtm_messaging`. No longer holds feature cards or counts — those live in `pds:feature:index` now and are computed live wherever they're needed. |
 | `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |
 
 Two Redis keys per session (index + full record), not one blob: transcripts can run to tens of
@@ -281,4 +303,15 @@ by diffing its `builtFromSessionIds` against the current set of ready sessions i
 module's, or — for the go-to-market record — every module's) — never stored as a flag, so it's
 always correct even after a session is edited, reassigned to a different module, or deleted, with no
 separate invalidation step to remember. A failed rebuild persists the error but keeps the previous
-`result`, so a bad refresh never wipes a working trend or the go-to-market record.
+`result`, so a bad refresh never wipes a working trend or the go-to-market record — and never
+touches `pds:feature:index` at all, so a failed rebuild can't corrupt the board either.
+
+## Upgrading from before the roadmap-board change
+
+If this deployment already has module trends built under the old model (feature cards nested
+inside each `pds:trend:<moduleId>.result.cards`), hit `POST /api/admin-migrate-features` once after
+deploying — from a signed-in browser console, or `curl -b <your session cookie>
+https://<domain>/api/admin-migrate-features -X POST`. It moves every old-shape card into
+`pds:feature:index` (keeping its existing id, bucket, and completion state) and strips the
+now-unused `cards`/`counts` fields from each trend record. It's idempotent — safe to run more than
+once, and a true no-op on a deployment with nothing to migrate (including a brand-new install).

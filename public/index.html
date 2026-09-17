@@ -29,8 +29,25 @@
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
   }
 }
-:root[data-theme="dark"]{ --launch-bg:#2c2308; --launch-ink:#e2b354; --phase2-bg:#122a38; --phase2-ink:#6cc2e8; --bau-bg:#241d33; --bau-ink:#b79ef0; }
-:root:not([data-theme="dark"]){ --launch-bg:#fdf3e2; --launch-ink:#8a5a00; --phase2-bg:#e7f2fb; --phase2-ink:#1a5f8a; --bau-bg:#f2edfb; --bau-ink:#5a3d99; }
+/* Bucket palette: the dataviz method's validated categorical slots 1-3 — the
+   only three of its eight hues cleared against the all-pairs CVD gate in
+   both light and dark, which is exactly the guarantee needed for exactly 3
+   buckets. -solid variables are the chart-bar/legend fill; -bg/-ink are a
+   paler decorative wash for the kanban columns (same hues, different role —
+   the wash never carries identity by color alone, since the bucket name is
+   already the column heading). */
+:root[data-theme="dark"]{
+  --bucket-launch-solid:#3987e5; --bucket-phase2-solid:#d95926; --bucket-bau-solid:#199e70;
+  --launch-bg:#122a38; --launch-ink:#6cc2e8;
+  --phase2-bg:#33220f; --phase2-ink:#e2a05a;
+  --bau-bg:#0f2b24;    --bau-ink:#4fd6ab;
+}
+:root:not([data-theme="dark"]){
+  --bucket-launch-solid:#2a78d6; --bucket-phase2-solid:#eb6834; --bucket-bau-solid:#1baf7a;
+  --launch-bg:#e7f2fb; --launch-ink:#1a5f8a;
+  --phase2-bg:#fdf1e7; --phase2-ink:#9a4a12;
+  --bau-bg:#e3f6f0;    --bau-ink:#0f6f52;
+}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
@@ -180,6 +197,37 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
   background:var(--panel);color:var(--ink-2);cursor:pointer}
 .pitem-controls button:hover{border-color:var(--accent)}
 .pitem-controls button.removebtn:hover{border-color:var(--crit-ink);color:var(--crit-ink)}
+.pitem-controls-secondary{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;
+  padding-top:8px;border-top:1px solid rgba(0,0,0,.08)}
+:root[data-theme="dark"] .pitem-controls-secondary{border-top-color:rgba(255,255,255,.1)}
+.ownerinput{font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink);width:110px}
+.ownerinput::placeholder{color:var(--ink-3)}
+.reqdonebox{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-2);cursor:pointer;
+  user-select:none}
+.reqdonebox input{cursor:pointer}
+
+.hbar-legend{display:flex;gap:16px;align-items:center;margin-bottom:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.hbar-legend .swatch{display:inline-flex;align-items:center;gap:6px}
+.hbar-legend .swatch i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.hbar-rows{display:flex;flex-direction:column;gap:10px}
+.hbar-row{display:grid;grid-template-columns:180px 1fr auto;gap:12px;align-items:center}
+@media (max-width:700px){.hbar-row{grid-template-columns:120px 1fr auto;gap:8px}}
+.hbar-rowlabel{font-size:13px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbar-track{display:flex;height:22px;border-radius:6px;overflow:hidden;background:var(--bg);gap:2px}
+.hbar-seg{position:relative;transition:filter .1s;outline:none}
+.hbar-seg:hover,.hbar-seg:focus{filter:brightness(1.12)}
+.hbar-seg:first-child{border-radius:6px 0 0 6px}
+.hbar-seg:last-child{border-radius:0 6px 6px 0}
+.hbar-seg[data-label]:hover::after,.hbar-seg[data-label]:focus::after{
+  content:attr(data-label);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:var(--ink);color:var(--bg);font-size:11px;padding:4px 8px;border-radius:6px;white-space:nowrap;
+  z-index:5;pointer-events:none;font-weight:600}
+.hbar-total{font-size:13px;font-weight:700;color:var(--ink-2);min-width:24px;text-align:right}
+.hbar-statusline{font-size:12px;color:var(--ink-3);margin-top:2px}
+@media print{
+  .hbar-seg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 
 .reporthead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px}
 .pbar-row{display:flex;align-items:center;gap:10px}
@@ -223,8 +271,9 @@ try{var _t=localStorage.getItem('pds-theme');
     <div class="hactions">
       <a href="#sessions" class="tbtn" id="nav-sessions">Sessions</a>
       <a href="#modules" class="tbtn" id="nav-modules">Modules</a>
+      <a href="#quotes" class="tbtn" id="nav-quotes">Quote Wall</a>
       <a href="#gtm" class="tbtn" id="nav-gtm">Go-to-Market</a>
-      <a href="#report" class="tbtn" id="nav-report">Status Report</a>
+      <a href="#report" class="tbtn" id="nav-report">Reports</a>
       <span id="storagewarn" class="tbtn" style="display:none;border-color:var(--crit-ink);color:var(--crit-ink)" title="No storage linked — nothing will save">Storage not linked</span>
       <button class="tbtn" id="theme">Dark</button>
       <button class="tbtn" id="signout">Sign out</button>
@@ -315,6 +364,13 @@ try{var _t=localStorage.getItem('pds-theme');
     <div id="moduledetailbody"></div>
   </section>
 
+  <section id="view-quotewall" hidden>
+    <h2 class="ph">Quote wall</h2>
+    <p class="sub">Standout "wow" moments from every module, attributed to the client and date that
+      said them — resolved from session data, never written into generated text.</p>
+    <div id="quotewallbody"></div>
+  </section>
+
   <section id="view-gtm" hidden>
     <h2 class="ph">Go-to-market messaging</h2>
     <p class="sub">Synthesized from every analyzed session across all session types — positioning,
@@ -326,9 +382,9 @@ try{var _t=localStorage.getItem('pds-theme');
   <section id="view-report" hidden>
     <div class="reporthead">
       <div>
-        <h2 class="ph">Status report</h2>
-        <p class="sub">A snapshot for the monthly board pack: session progress toward the 10-per-type
-          goal, and how many prioritized features each module's trend has surfaced so far.</p>
+        <h2 class="ph">Reports</h2>
+        <p class="sub">The monthly board pack: session progress toward the 10-per-type goal, and a
+          breakdown of every module's roadmap features by bucket and delivery status.</p>
       </div>
       <button type="button" class="btn ghost printbtn" id="printreportbtn">Print / save as PDF</button>
     </div>
@@ -506,6 +562,7 @@ function bootApp(storageConfigured){
     detail:document.getElementById('view-detail'),
     modules:document.getElementById('view-modules'),
     moduledetail:document.getElementById('view-module-detail'),
+    quotewall:document.getElementById('view-quotewall'),
     gtm:document.getElementById('view-gtm'),
     report:document.getElementById('view-report')
   };
@@ -513,16 +570,20 @@ function bootApp(storageConfigured){
     Object.keys(views).forEach(function(k){ views[k].hidden = k!==name; });
     document.getElementById('nav-sessions').classList.toggle('active', name==='list'||name==='form'||name==='detail');
     document.getElementById('nav-modules').classList.toggle('active', name==='modules'||name==='moduledetail');
+    document.getElementById('nav-quotes').classList.toggle('active', name==='quotewall');
     document.getElementById('nav-gtm').classList.toggle('active', name==='gtm');
     document.getElementById('nav-report').classList.toggle('active', name==='report');
   }
 
   async function go(){
-    const hash=location.hash.slice(1); // '', 'sessions', 'sessions/new', 'sessions/<id>', 'modules', 'modules/<slug>', 'gtm', 'report'
+    const hash=location.hash.slice(1); // '', 'sessions', 'sessions/new', 'sessions/<id>', 'modules', 'modules/<slug>', 'quotes', 'gtm', 'report'
     const parts=hash.split('/').filter(Boolean);
     if(parts[0]==='report'){
       showView('report');
       await loadReport();
+    }else if(parts[0]==='quotes'){
+      showView('quotewall');
+      await loadQuoteWall();
     }else if(parts[0]==='gtm'){
       showView('gtm');
       await loadGtm();
@@ -891,16 +952,18 @@ function bootApp(storageConfigured){
   async function openModuleDetail(moduleId){
     const body=document.getElementById('moduledetailbody');
     body.innerHTML='<p class="sub">Loading…</p>';
-    const [trendRes,sessionsRes]=await Promise.all([
+    const [trendRes,sessionsRes,featuresRes]=await Promise.all([
       api('/api/module-trends?module='+encodeURIComponent(moduleId)),
-      api('/api/sessions')
+      api('/api/sessions'),
+      api('/api/features?module='+encodeURIComponent(moduleId))
     ]);
     if(!trendRes.ok){
       body.innerHTML='<div class="err-box">'+esc(trendRes.body.error||'Could not load that trend.')+'</div>';
       return;
     }
     const index=(sessionsRes.ok && sessionsRes.body.items) || [];
-    renderModuleDetail(moduleId, trendRes.body.item, index);
+    const features=(featuresRes.ok && featuresRes.body.items) || [];
+    renderModuleDetail(moduleId, trendRes.body.item, index, features);
   }
 
   function sessionChip(id, index){
@@ -913,7 +976,7 @@ function bootApp(storageConfigured){
     return '<div style="margin-top:6px">'+ids.map(function(id){ return sessionChip(id,index); }).join('')+'</div>';
   }
 
-  function renderModuleDetail(moduleId, trend, index){
+  function renderModuleDetail(moduleId, trend, index, features){
     const body=document.getElementById('moduledetailbody');
     const label=moduleLabel(moduleId);
     const readyIds=index.filter(function(s){ return s.module===moduleId && s.status==='ready'; }).map(function(s){ return s.id; });
@@ -925,6 +988,34 @@ function bootApp(storageConfigured){
         (trend.lastErrorAt?'<div class="code">'+esc(fmtDateTime(trend.lastErrorAt))+'</div>':'')+'</div>';
     }
 
+    function renderCard(c){
+      return '<div class="pitem'+(c.complete?' complete':'')+'" data-feature-id="'+esc(c.id)+'">'+
+        '<div class="pitem-head"><div class="pitem-text">'+esc(c.item)+'</div></div>'+
+        '<div class="rationale">'+esc(c.rationale)+'</div>'+
+        chips(c.supporting_session_ids,index)+
+        '<div class="pitem-controls">'+
+          '<select class="movesel" data-feature-id="'+esc(c.id)+'" title="Bucket">'+
+            BUCKETS.map(function(b){ return '<option value="'+b.id+'"'+(b.id===c.bucket?' selected':'')+'>'+esc(b.label)+'</option>'; }).join('')+
+          '</select>'+
+          '<select class="cardmodulesel" data-feature-id="'+esc(c.id)+'" title="Module">'+
+            MODULES.map(function(m){ return '<option value="'+m.id+'"'+(m.id===c.module?' selected':'')+'>'+esc(m.label)+'</option>'; }).join('')+
+          '</select>'+
+        '</div>'+
+        '<div class="pitem-controls-secondary">'+
+          '<input type="text" class="ownerinput" data-feature-id="'+esc(c.id)+'" placeholder="Owner" value="'+esc(c.owner||'')+'">'+
+          '<label class="reqdonebox"><input type="checkbox" class="reqdonebox-input" data-feature-id="'+esc(c.id)+'"'+(c.requirementsDone?' checked':'')+'> Requirements done</label>'+
+          '<button type="button" class="completebtn" data-feature-id="'+esc(c.id)+'" data-complete="'+(c.complete?'0':'1')+'">'+(c.complete?'Reopen':'Mark complete')+'</button>'+
+          '<button type="button" class="removebtn" data-feature-id="'+esc(c.id)+'">Remove</button>'+
+        '</div>'+
+      '</div>';
+    }
+    function prioCol(bucket,title){
+      const items=features.filter(function(c){ return c.bucket===bucket; });
+      return '<div class="pcol '+bucket+'"><h4>'+title+'</h4>'+
+        (items.length ? items.map(renderCard).join('') : '<p class="rationale">Nothing here yet.</p>')+
+      '</div>';
+    }
+
     let content;
     if(!trend || !trend.result){
       content='<div class="empty">Not built yet — go to <a href="#modules">Modules</a> and click Build trend for '+esc(label)+'.</div>';
@@ -933,30 +1024,6 @@ function bootApp(storageConfigured){
       const warn=trend.sessionCountAtBuild<3
         ? '<div class="warnpanel">Built from only '+trend.sessionCountAtBuild+' session'+(trend.sessionCountAtBuild===1?'':'s')+' — treat this as an early signal, not a settled trend.</div>'
         : '';
-      const cards=Array.isArray(r.cards) ? r.cards : [];
-      const legacyNote=(!Array.isArray(r.cards) && r.feature_prioritization)
-        ? '<p class="hint">This trend was built before card moving/completion existed — click Refresh trend to rebuild it onto the new board.</p>'
-        : '';
-      function renderCard(c){
-        return '<div class="pitem'+(c.complete?' complete':'')+'">'+
-          '<div class="pitem-head"><div class="pitem-text">'+esc(c.item)+'</div></div>'+
-          '<div class="rationale">'+esc(c.rationale)+'</div>'+
-          chips(c.supporting_session_ids,index)+
-          '<div class="pitem-controls">'+
-            '<select class="movesel" data-card-id="'+esc(c.id)+'">'+
-              BUCKETS.map(function(b){ return '<option value="'+b.id+'"'+(b.id===c.bucket?' selected':'')+'>'+esc(b.label)+'</option>'; }).join('')+
-            '</select>'+
-            '<button type="button" class="completebtn" data-card-id="'+esc(c.id)+'" data-complete="'+(c.complete?'0':'1')+'">'+(c.complete?'Reopen':'Mark complete')+'</button>'+
-            '<button type="button" class="removebtn" data-card-id="'+esc(c.id)+'">Remove</button>'+
-          '</div>'+
-        '</div>';
-      }
-      function prioCol(bucket,title){
-        const items=cards.filter(function(c){ return c.bucket===bucket; });
-        return '<div class="pcol '+bucket+'"><h4>'+title+'</h4>'+
-          (items.length ? items.map(renderCard).join('') : '<p class="rationale">Nothing here yet.</p>')+
-        '</div>';
-      }
       const valueMoments=Array.isArray(r.value_moments) ? r.value_moments : null;
       const valueMomentsBlock=valueMoments===null
         ? '<div class="panel"><h3>Value created</h3><p class="hint">This trend was built before Value created existed — click Refresh trend to populate it (this won\'t touch any cards on the board below).</p></div>'
@@ -966,7 +1033,7 @@ function bootApp(storageConfigured){
                 '<div class="evi">'+esc(v.theme)+'</div>'+chips(v.supporting_session_ids,index)+'</div>';
             }).join('') : '<p class="sub" style="margin:0">No standout "wow" moments surfaced yet for this module.</p>')+
           '</div>';
-      content=warn+legacyNote+
+      content=warn+
         '<div class="panel"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
         valueMomentsBlock+
         '<div class="panel"><h3>Feature prioritization</h3><div class="prioritycols">'+
@@ -992,15 +1059,14 @@ function bootApp(storageConfigured){
           '<div class="subline"><span class="badge '+st.cls+'">'+esc(st.label)+'</span>'+
           (trend&&trend.builtAt?' &middot; Last built '+esc(fmtDateTime(trend.builtAt))+' from '+trend.sessionCountAtBuild+' session'+(trend.sessionCountAtBuild===1?'':'s'):'')+
           '</div></div>'+
-        '<div class="dactions"><button type="button" class="btn" id="refreshtrendbtn"'+(readyIds.length?'':' disabled')+'>'+
+        '<div class="dactions"><button type="button" class="btn" id="refreshtrendbtn"'+(readyIds.length?'':' disabled')+
+          ' title="Adds any newly-surfaced features from the latest sessions — nothing already on the board is touched.">'+
           (trend&&trend.builtAt?'Refresh trend':'Build trend')+'</button></div>'+
       '</div>'+
       errBlock+content;
 
     const refreshBtn=document.getElementById('refreshtrendbtn');
     if(refreshBtn) refreshBtn.addEventListener('click',async function(){
-      const hasCards=trend && trend.result && Array.isArray(trend.result.cards) && trend.result.cards.length>0;
-      if(hasCards && !confirm('Refreshing regenerates every card from scratch — any manual bucket moves or completions will be lost. Continue?')) return;
       refreshBtn.disabled=true; refreshBtn.textContent='Building…';
       const res=await api('/api/module-trends-build',{method:'POST',body:JSON.stringify({module:moduleId})});
       if(!res.ok){ alert(res.body.error||'Could not build the trend.'); }
@@ -1010,19 +1076,52 @@ function bootApp(storageConfigured){
     body.querySelectorAll('.movesel').forEach(function(sel){
       sel.addEventListener('change',async function(){
         sel.disabled=true;
-        const res=await api('/api/module-trends-card',{method:'POST',body:JSON.stringify({
-          module:moduleId,cardId:sel.dataset.cardId,action:'move',bucket:sel.value
+        const res=await api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'update',id:sel.dataset.featureId,bucket:sel.value
         })});
         if(!res.ok){ alert(res.body.error||'Could not move the card.'); }
         await openModuleDetail(moduleId);
       });
     });
+    body.querySelectorAll('.cardmodulesel').forEach(function(sel){
+      sel.addEventListener('change',async function(){
+        sel.disabled=true;
+        const res=await api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'update',id:sel.dataset.featureId,module:sel.value
+        })});
+        if(!res.ok){ alert(res.body.error||'Could not move the card to that module.'); }
+        await openModuleDetail(moduleId);
+      });
+    });
+    body.querySelectorAll('.reqdonebox-input').forEach(function(cb){
+      cb.addEventListener('change',async function(){
+        cb.disabled=true;
+        const res=await api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'update',id:cb.dataset.featureId,requirementsDone:cb.checked
+        })});
+        if(!res.ok){ alert(res.body.error||'Could not update the card.'); }
+        await openModuleDetail(moduleId);
+      });
+    });
+    body.querySelectorAll('.ownerinput').forEach(function(inp){
+      function save(){
+        return api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'update',id:inp.dataset.featureId,owner:inp.value
+        })});
+      }
+      inp.addEventListener('blur',async function(){
+        const res=await save();
+        if(!res.ok) alert(res.body.error||'Could not save the owner.');
+      });
+      inp.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
+      });
+    });
     body.querySelectorAll('.completebtn').forEach(function(btn){
       btn.addEventListener('click',async function(){
         btn.disabled=true;
-        const action=btn.dataset.complete==='1' ? 'complete' : 'reopen';
-        const res=await api('/api/module-trends-card',{method:'POST',body:JSON.stringify({
-          module:moduleId,cardId:btn.dataset.cardId,action:action
+        const res=await api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'update',id:btn.dataset.featureId,complete:btn.dataset.complete==='1'
         })});
         if(!res.ok){ alert(res.body.error||'Could not update the card.'); }
         await openModuleDetail(moduleId);
@@ -1030,10 +1129,10 @@ function bootApp(storageConfigured){
     });
     body.querySelectorAll('.removebtn').forEach(function(btn){
       btn.addEventListener('click',async function(){
-        if(!confirm('Remove this card from the board? This cannot be undone until the trend is next rebuilt.')) return;
+        if(!confirm('Remove this card from the board? This cannot be undone.')) return;
         btn.disabled=true;
-        const res=await api('/api/module-trends-card',{method:'POST',body:JSON.stringify({
-          module:moduleId,cardId:btn.dataset.cardId,action:'delete'
+        const res=await api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'delete',id:btn.dataset.featureId
         })});
         if(!res.ok){ alert(res.body.error||'Could not remove the card.'); }
         await openModuleDetail(moduleId);
@@ -1112,7 +1211,37 @@ function bootApp(storageConfigured){
     });
   }
 
-  /* ---- status report (monthly board pack) ---- */
+  /* ---- quote wall ---- */
+  async function loadQuoteWall(){
+    const body=document.getElementById('quotewallbody');
+    body.innerHTML='<p class="sub">Loading…</p>';
+    const [quotesRes,sessionsRes]=await Promise.all([api('/api/quote-wall'),api('/api/sessions')]);
+    if(!quotesRes.ok){
+      body.innerHTML='<div class="err-box">'+esc(quotesRes.body.error||'Could not load the quote wall.')+'</div>';
+      return;
+    }
+    const index=(sessionsRes.ok && sessionsRes.body.items) || [];
+    renderQuoteWall(quotesRes.body.items||[], index);
+  }
+
+  function renderQuoteWall(items, index){
+    const body=document.getElementById('quotewallbody');
+    const withQuotes=items.filter(function(i){ return i.quotes && i.quotes.length; });
+    if(!withQuotes.length){
+      body.innerHTML='<div class="empty">No standout "wow" moments yet — build a module\'s trend once it has analyzed sessions to start populating this.</div>';
+      return;
+    }
+    body.innerHTML=withQuotes.map(function(entry){
+      return '<div class="panel"><h3>'+esc(moduleLabel(entry.module))+'</h3>'+
+        entry.quotes.map(function(q){
+          return '<div style="margin-bottom:14px"><p class="pullquote">"'+esc(q.quote)+'"</p>'+
+            '<div class="evi">'+esc(q.theme)+'</div>'+chips(q.supporting_session_ids,index)+'</div>';
+        }).join('')+
+      '</div>';
+    }).join('');
+  }
+
+  /* ---- reports dashboard (monthly board pack) ---- */
   const SESSION_TARGET_PER_MODULE=10; /* the program's stated goal, per session type */
 
   function pbar(count,target){
@@ -1125,63 +1254,89 @@ function bootApp(storageConfigured){
       '</div>';
   }
 
+  /* Same shape the server used to compute via lib/trend-cards.js's now-deleted
+     boardCounts — features are a live collection now, so this is computed
+     client-side from whatever slice of /api/features a view fetched. */
+  function groupFeatures(features){
+    return {
+      launch: features.filter(function(f){ return f.bucket==='launch'; }).length,
+      phase2: features.filter(function(f){ return f.bucket==='phase2'; }).length,
+      bau: features.filter(function(f){ return f.bucket==='bau'; }).length,
+      total: features.length,
+      complete: features.filter(function(f){ return f.complete; }).length,
+      requirementsDone: features.filter(function(f){ return f.requirementsDone; }).length
+    };
+  }
+
+  const BUCKET_SOLID_VAR={launch:'--bucket-launch-solid',phase2:'--bucket-phase2-solid',bau:'--bucket-bau-solid'};
+
+  /* Horizontal stacked bar — one row, three fixed-order segments (never
+     reordered by count). Empty segments are omitted from the DOM so a
+     zero-count bucket doesn't leave a stray sliver. */
+  function hbarRow(label, g){
+    const segs=BUCKETS.map(function(b){
+      if(!g[b.id]) return '';
+      return '<div class="hbar-seg" style="flex:'+g[b.id]+' '+g[b.id]+' 0%;background:var('+BUCKET_SOLID_VAR[b.id]+')" '+
+        'tabindex="0" role="img" aria-label="'+esc(b.label)+': '+g[b.id]+' feature'+(g[b.id]===1?'':'s')+'" '+
+        'data-label="'+esc(b.label)+': '+g[b.id]+'"></div>';
+    }).join('');
+    return '<div class="hbar-row">'+
+      '<div class="hbar-rowlabel" title="'+esc(label)+'">'+esc(label)+'</div>'+
+      '<div class="hbar-track">'+(segs||'')+'</div>'+
+      '<div class="hbar-total">'+g.total+'</div>'+
+      '</div>'+
+      '<div class="hbar-statusline">'+
+        (g.total
+          ? g.total+' total, '+g.complete+' complete, '+g.requirementsDone+' requirements done '+
+            '<span class="hint">(Launch '+g.launch+' &middot; Phase 2 '+g.phase2+' &middot; Future Considerations '+g.bau+')</span>'
+          : '<span class="hint">No features logged yet</span>')+
+      '</div>';
+  }
+  function hbarLegend(){
+    return '<div class="hbar-legend">'+BUCKETS.map(function(b){
+      return '<span class="swatch"><i style="background:var('+BUCKET_SOLID_VAR[b.id]+')"></i>'+esc(b.label)+'</span>';
+    }).join('')+'</div>';
+  }
+
   async function loadReport(){
     const body=document.getElementById('reportbody');
     body.innerHTML='<p class="sub">Loading…</p>';
-    const [sessionsRes,trendsRes]=await Promise.all([api('/api/sessions'),api('/api/module-trends')]);
+    const [sessionsRes,featuresRes]=await Promise.all([api('/api/sessions'),api('/api/features')]);
     if(!sessionsRes.ok){
       body.innerHTML='<div class="err-box">'+esc(sessionsRes.body.error||'Could not load sessions.')+'</div>';
       return;
     }
     const index=sessionsRes.body.items||[];
-    const trends=(trendsRes.ok && trendsRes.body.trends) || {};
-    renderReport(index,trends);
+    const features=(featuresRes.ok && featuresRes.body.items) || [];
+    renderReport(index,features);
   }
 
-  function renderReport(index,trends){
+  function renderReport(index,features){
     const body=document.getElementById('reportbody');
 
     const totalTarget=MODULES.length*SESSION_TARGET_PER_MODULE;
     const totalSessions=index.length;
+    const overall=groupFeatures(features);
 
-    let totalFeatures=0,totalComplete=0,totalLaunch=0,totalPhase2=0,totalBau=0,modulesWithTrend=0;
     const rows=MODULES.map(function(m){
-      const count=index.filter(function(s){ return s.module===m.id; }).length;
-      const trend=trends[m.id];
-      const counts=trend&&trend.counts ? trend.counts : null;
-      if(counts){
-        modulesWithTrend++;
-        totalFeatures+=counts.total; totalComplete+=counts.complete||0;
-        totalLaunch+=counts.launch; totalPhase2+=counts.phase2; totalBau+=counts.bau;
-      }
-      return {module:m,count:count,counts:counts};
+      const sessionCount=index.filter(function(s){ return s.module===m.id; }).length;
+      const g=groupFeatures(features.filter(function(f){ return f.module===m.id; }));
+      return {module:m,sessionCount:sessionCount,g:g};
     });
 
     body.innerHTML=
       '<div class="panel"><h3>Overall progress</h3>'+
         '<p class="hint" style="margin:0 0 6px">Sessions held (goal: '+SESSION_TARGET_PER_MODULE+' per session type)</p>'+
         pbar(totalSessions,totalTarget)+
-        '<p class="hint" style="margin:16px 0 6px">Features logged across all built module trends</p>'+
-        '<p class="summary-text">'+totalFeatures+' total, '+totalComplete+' complete'+
-          (modulesWithTrend?' &middot; Launch: '+totalLaunch+' &middot; Phase 2: '+totalPhase2+' &middot; Future Considerations: '+totalBau:'')+
-          (modulesWithTrend<MODULES.length?' <span class="hint">('+(MODULES.length-modulesWithTrend)+' session type'+(MODULES.length-modulesWithTrend===1?'':'s')+' not yet built)</span>':'')+
-        '</p>'+
+        '<p class="hint" style="margin:18px 0 6px">Features across all modules</p>'+
+        hbarLegend()+
+        hbarRow('All modules', overall)+
       '</div>'+
       '<div class="panel"><h3>By session type</h3>'+
-        '<table class="datatable"><thead><tr><th>Session type</th><th>Sessions held</th><th>Features logged</th></tr></thead><tbody>'+
-        rows.map(function(r){
-          return '<tr>'+
-            '<td>'+esc(r.module.label)+'</td>'+
-            '<td style="min-width:220px">'+pbar(r.count,SESSION_TARGET_PER_MODULE)+'</td>'+
-            '<td>'+(r.counts
-              ? r.counts.total+' total, '+(r.counts.complete||0)+' complete <span class="hint">(Launch '+r.counts.launch+' &middot; Phase 2 '+r.counts.phase2+' &middot; Future Considerations '+r.counts.bau+')</span>'
-              : '<span class="hint">Trend not built yet</span>')+
-            '</td>'+
-            '</tr>';
-        }).join('')+
-        '</tbody></table>'+
+        hbarLegend()+
+        '<div class="hbar-rows">'+rows.map(function(r){ return hbarRow(r.module.label, r.g); }).join('')+'</div>'+
       '</div>'+
-      '<p class="hint">Generated '+esc(fmtDateTime(new Date().toISOString()))+'. Sessions held counts every logged session regardless of analysis status; features logged counts cards in each module\'s Launch/Phase 2/Future Considerations board, including any manual moves or completions made since the trend was last built — a full rebuild replaces the cards themselves and resets those.</p>';
+      '<p class="hint">Generated '+esc(fmtDateTime(new Date().toISOString()))+'. Sessions held counts every logged session regardless of analysis status; feature counts reflect the live roadmap board right now, including any bucket moves, owner assignments, or completions — nothing here waits for a rebuild.</p>';
   }
 
   go();
