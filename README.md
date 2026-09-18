@@ -182,14 +182,18 @@ everything else (sign-in, navigation, forms) still works.
    one-sentence pitches — a single striking reaction is enough to earn a spot here, unlike the
    prioritization buckets below, which need to recur across sessions), feature prioritization — one
    card per feature, sorted into **Launch** / **Phase 2** / **Future Considerations** — adoption
-   blockers, and draft messaging from every analyzed session tagged to it. **This is purely
-   additive**: building or refreshing a trend only ever *adds* newly-surfaced feature cards — it
-   never touches, moves, or resets a card already on the board, no matter how many times you
-   rebuild. Every card links back to the specific sessions that support it (resolved to client name
-   + date, never written into the generated text itself — see the anti-fabrication note below), and
-   carries controls to:
-   - **Move it to a different bucket**, or **to a different module entirely** (two dropdowns).
-   - **Assign an owner** (free text, inline on the card).
+   blockers, and draft messaging from every analyzed session tagged to it. The board itself is
+   styled like a Jira/Trello kanban — neutral columns, white cards with a colored left-edge accent
+   matching their bucket, a card count badge on each column header, and an owner avatar (initials,
+   generated from the free-text owner name) on every card — though moving a card is still done via
+   its dropdowns rather than an actual drag gesture. **This is purely additive**: building or
+   refreshing a trend only ever *adds* newly-surfaced feature cards — it never touches, moves, or
+   resets a card already on the board, no matter how many times you rebuild. Every card links back
+   to the specific sessions that support it (resolved to client name + date, never written into the
+   generated text itself — see the anti-fabrication note below), and carries controls to:
+   - **Move it to a different bucket**, or **to a different module entirely** (two dropdowns — the
+     bucket dropdown doubles as a colored status pill).
+   - **Assign an owner** (free text, inline on the card, shown as an initials avatar).
    - **Mark requirements done** (a checkbox — independent of delivery) and/or **mark complete**.
    - **Remove it** from the board (with a confirmation — this one has no undo).
 
@@ -203,13 +207,14 @@ everything else (sign-in, navigation, forms) still works.
    highlight per module that has enough signal to support one — each grounded across more than one
    customer or module, so a single session's one-off comment shows up in that module's own trend
    rather than here.
-8. **Reports** (top nav) is the monthly board pack: sessions held per session type against the
-   program's goal of 10 each (with a progress bar and %), the overall total against the sum of
-   those targets, and a stacked-bar breakdown of every module's roadmap features by bucket, plus how
-   many are requirements-done/complete. **Print / save as PDF** hides the nav and buttons for a
-   clean printout. Feature data is live — it reflects the current board (any bucket move, module
-   move, owner, or completion) at the moment you open the tab, not a snapshot from the last trend
-   build.
+8. **Reports** (top nav) is the monthly board pack, led with four hero stat tiles (sessions held,
+   features logged, complete, requirements done), a progress ring for sessions held toward the
+   10-per-session-type goal, and a donut chart for the overall Launch/Phase 2/Future Considerations
+   mix — all backed by the same detailed, precise stacked-bar breakdown per module underneath (the
+   donut and ring are an at-a-glance summary layered on top of that data, not a replacement for it).
+   **Print / save as PDF** hides the nav and buttons for a clean printout. Feature data is live — it
+   reflects the current board (any bucket move, module move, owner, or completion) at the moment you
+   open the tab, not a snapshot from the last trend build.
 
 **Managed client list, not free text.** ~10 clients are each expected to generate many sessions over
 the program, so — same reasoning as the fixed module list — clients are chosen from a small managed

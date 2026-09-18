@@ -180,37 +180,50 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
   font-size:12px;padding:3px 10px;border-radius:999px;text-decoration:none;margin:2px 4px 2px 0}
 .chip:hover{border-color:var(--accent);color:var(--accent)}
 
-.prioritycols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+/* Kanban board — Jira/Trello-style: neutral column surface, cards carry the
+   color (a left accent stripe + the bucket select doubling as a status
+   pill), not the whole column. This is a visual restyle only — moving a
+   card is still the same select-driven update that already worked, just
+   skinned to look like a status chip you click rather than a bordered
+   dropdown box. No drag-and-drop: that's a materially bigger, riskier
+   feature to add sight-unseen (no browser available to verify interaction
+   behavior), so the existing dropdown-based move stays the mechanism. */
+.prioritycols{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 @media (max-width:800px){.prioritycols{grid-template-columns:1fr}}
-.pcol{border-radius:12px;padding:16px}
-.pcol.launch{background:var(--launch-bg);color:var(--launch-ink)}
-.pcol.phase2{background:var(--phase2-bg);color:var(--phase2-ink)}
-.pcol.bau{background:var(--bau-bg);color:var(--bau-ink)}
-.pcol h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
-.pitem{background:rgba(255,255,255,.35);border-radius:8px;padding:10px 12px;margin-bottom:8px}
-:root[data-theme="dark"] .pitem{background:rgba(0,0,0,.2)}
+.pcol{border-radius:14px;padding:12px;background:var(--bg);border:1px solid var(--line)}
+.pcol-head{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 12px}
+.pcol-head h4{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);font-weight:700}
+.pcol-count{font-size:11px;font-weight:800;color:#fff;border-radius:999px;min-width:22px;height:22px;
+  display:inline-flex;align-items:center;justify-content:center;padding:0 7px}
+.pitem{background:var(--panel);border-radius:10px;padding:12px 14px;margin-bottom:10px;
+  border:1px solid var(--line);border-left-width:4px;box-shadow:0 1px 2px rgba(16,20,30,.04)}
+:root[data-theme="dark"] .pitem{box-shadow:0 1px 2px rgba(0,0,0,.2)}
 .pitem:last-child{margin-bottom:0}
-.pitem .rationale{font-size:12.5px;opacity:.85;margin-top:4px}
-.pitem.complete{opacity:.55}
+.pitem .rationale{font-size:12.5px;color:var(--ink-3);margin-top:4px}
+.pitem.complete{opacity:.6}
 .pitem.complete .pitem-text{text-decoration:line-through}
 .pitem-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-.pitem-text{flex:1}
-.pitem-controls{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
-.pitem-controls select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--line);
-  background:var(--panel);color:var(--ink);transition:border-color .15s ease}
-.pitem-controls button{font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);
-  transition:border-color .15s ease,color .15s ease;
+.pitem-text{flex:1;font-weight:600;font-size:13.5px;line-height:1.4}
+.pitem-avatar{width:24px;height:24px;border-radius:999px;display:inline-flex;align-items:center;
+  justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0}
+.pitem-controls{display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.pitem-controls select{font-size:11px;padding:3px 10px;border-radius:999px;border:none;
+  font-weight:700;cursor:pointer;transition:filter .15s ease;appearance:none}
+.pitem-controls select:hover{filter:brightness(1.08)}
+.pitem-controls select.cardmodulesel{background:var(--bg);color:var(--ink-2);border:1px solid var(--line);font-weight:500}
+.pitem-controls button{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);
+  transition:border-color .15s ease,color .15s ease,background .15s ease;
   background:var(--panel);color:var(--ink-2);cursor:pointer}
-.pitem-controls button:hover{border-color:var(--accent)}
+.pitem-controls button:hover{border-color:var(--accent);color:var(--accent)}
 .pitem-controls button.removebtn:hover{border-color:var(--crit-ink);color:var(--crit-ink)}
-.pitem-controls-secondary{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;
-  padding-top:8px;border-top:1px solid rgba(0,0,0,.08)}
-:root[data-theme="dark"] .pitem-controls-secondary{border-top-color:rgba(255,255,255,.1)}
-.ownerinput{font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);
-  background:var(--panel);color:var(--ink);width:110px}
+.pitem-controls-secondary{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;
+  padding-top:10px;border-top:1px solid var(--line)}
+.ownerinput{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid transparent;
+  background:transparent;color:var(--ink);width:88px;transition:border-color .15s ease,background .15s ease}
+.ownerinput:hover,.ownerinput:focus{border-color:var(--line);background:var(--bg)}
 .ownerinput::placeholder{color:var(--ink-3)}
 .reqdonebox{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-2);cursor:pointer;
-  user-select:none}
+  user-select:none;margin-left:auto}
 .reqdonebox input{cursor:pointer}
 
 .hbar-legend{display:flex;gap:16px;align-items:center;margin-bottom:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
@@ -232,8 +245,24 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 .hbar-total{font-size:13px;font-weight:700;color:var(--ink-2);min-width:24px;text-align:right}
 .hbar-statusline{font-size:12px;color:var(--ink-3);margin-top:2px}
 @media print{
-  .hbar-seg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .hbar-seg,.stat-accent,.ring-wrap svg,.donut-ring{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.stat-tile{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:18px 18px 16px}
+.stat-tile .stat-accent{position:absolute;top:0;left:0;right:0;height:4px}
+.stat-tile .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:700;margin-bottom:8px}
+.stat-tile .stat-value{font-size:32px;font-weight:800;line-height:1;color:var(--ink);letter-spacing:-.01em}
+.stat-tile .stat-sub{font-size:12px;color:var(--ink-3);margin-top:6px}
+.hero-row{display:flex;align-items:center;gap:28px;flex-wrap:wrap;margin-bottom:8px}
+.hero-row>div{flex:1;min-width:220px}
+.ring-wrap{position:relative;width:120px;height:120px;flex-shrink:0}
+.ring-wrap .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ring-center .ring-pct{font-size:22px;font-weight:800;color:var(--ink);line-height:1.1}
+.ring-center .ring-label{font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+.donut-row{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.donut-row>div:last-child{flex:1;min-width:220px}
 
 .reporthead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px}
 .pbar-row{display:flex;align-items:center;gap:10px}
@@ -515,6 +544,15 @@ function fmtDateTime(s){
 }
 function badgeLabel(status){
   return status==='ready'?'Ready':status==='error'?'Error':'Draft';
+}
+/* Small avatar-style initials for a free-text owner name — "Jane Doe" -> "JD",
+   a single word -> its first two letters, empty -> "?" (unassigned). */
+function initials(name){
+  const n=(name||'').trim();
+  if(!n) return '?';
+  const parts=n.split(/\s+/).filter(Boolean);
+  if(parts.length===1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0]+parts[parts.length-1][0]).toUpperCase();
 }
 function listOrEmpty(arr,render){
   if(!arr || !arr.length) return '<p class="sub" style="margin:0">Nothing raised in this call.</p>';
@@ -995,30 +1033,37 @@ function bootApp(storageConfigured){
     }
 
     function renderCard(c){
-      return '<div class="pitem'+(c.complete?' complete':'')+' transition-all duration-150 hover:shadow-md hover:-translate-y-0.5" data-feature-id="'+esc(c.id)+'">'+
+      const solid='var('+BUCKET_SOLID_VAR[c.bucket]+')';
+      const av=initials(c.owner);
+      return '<div class="pitem'+(c.complete?' complete':'')+' transition-all duration-150 hover:shadow-lg hover:-translate-y-0.5" '+
+        'style="border-left-color:'+solid+'" data-feature-id="'+esc(c.id)+'">'+
         '<div class="pitem-head"><div class="pitem-text">'+esc(c.item)+'</div></div>'+
         '<div class="rationale">'+esc(c.rationale)+'</div>'+
         chips(c.supporting_session_ids,index)+
         '<div class="pitem-controls">'+
-          '<select class="movesel" data-feature-id="'+esc(c.id)+'" title="Bucket">'+
+          '<select class="movesel" data-feature-id="'+esc(c.id)+'" title="Bucket" style="background:'+solid+';color:#fff">'+
             BUCKETS.map(function(b){ return '<option value="'+b.id+'"'+(b.id===c.bucket?' selected':'')+'>'+esc(b.label)+'</option>'; }).join('')+
           '</select>'+
           '<select class="cardmodulesel" data-feature-id="'+esc(c.id)+'" title="Module">'+
             MODULES.map(function(m){ return '<option value="'+m.id+'"'+(m.id===c.module?' selected':'')+'>'+esc(m.label)+'</option>'; }).join('')+
           '</select>'+
+          '<label class="reqdonebox" title="Requirements done"><input type="checkbox" class="reqdonebox-input" data-feature-id="'+esc(c.id)+'"'+(c.requirementsDone?' checked':'')+'> Reqs</label>'+
         '</div>'+
         '<div class="pitem-controls-secondary">'+
-          '<input type="text" class="ownerinput" data-feature-id="'+esc(c.id)+'" placeholder="Owner" value="'+esc(c.owner||'')+'">'+
-          '<label class="reqdonebox"><input type="checkbox" class="reqdonebox-input" data-feature-id="'+esc(c.id)+'"'+(c.requirementsDone?' checked':'')+'> Requirements done</label>'+
-          '<button type="button" class="completebtn" data-feature-id="'+esc(c.id)+'" data-complete="'+(c.complete?'0':'1')+'">'+(c.complete?'Reopen':'Mark complete')+'</button>'+
+          '<div class="pitem-avatar" style="background:'+(c.owner?solid:'var(--ink-3)')+'" title="'+(c.owner?esc(c.owner):'Unassigned')+'">'+av+'</div>'+
+          '<input type="text" class="ownerinput" data-feature-id="'+esc(c.id)+'" placeholder="Unassigned" value="'+esc(c.owner||'')+'">'+
+          '<button type="button" class="completebtn" data-feature-id="'+esc(c.id)+'" data-complete="'+(c.complete?'0':'1')+'">'+(c.complete?'Reopen':'✓ Complete')+'</button>'+
           '<button type="button" class="removebtn" data-feature-id="'+esc(c.id)+'">Remove</button>'+
         '</div>'+
       '</div>';
     }
     function prioCol(bucket,title){
       const items=features.filter(function(c){ return c.bucket===bucket; });
-      return '<div class="pcol '+bucket+'"><h4>'+title+'</h4>'+
-        (items.length ? items.map(renderCard).join('') : '<p class="rationale">Nothing here yet.</p>')+
+      return '<div class="pcol">'+
+        '<div class="pcol-head"><h4>'+title+'</h4>'+
+          '<span class="pcol-count" style="background:var('+BUCKET_SOLID_VAR[bucket]+')">'+items.length+'</span>'+
+        '</div>'+
+        (items.length ? items.map(renderCard).join('') : '<p class="rationale px-1">Nothing here yet.</p>')+
       '</div>';
     }
 
@@ -1304,6 +1349,55 @@ function bootApp(storageConfigured){
     }).join('')+'</div>';
   }
 
+  function statTile(label,value,sub,colorVar){
+    return '<div class="stat-tile shadow-sm hover:shadow-md transition-shadow duration-300">'+
+      '<div class="stat-accent" style="background:var('+colorVar+')"></div>'+
+      '<div class="stat-label">'+esc(label)+'</div>'+
+      '<div class="stat-value">'+value+'</div>'+
+      (sub?'<div class="stat-sub">'+esc(sub)+'</div>':'')+
+    '</div>';
+  }
+
+  /* A single-series progress ring — the goal-tracking hero visual. Plain SVG,
+     no library: two concentric circles, the foreground one's dash-offset
+     driven by percent complete. */
+  function ringSvg(pct,colorVar){
+    const size=120,stroke=10,r=(size-stroke)/2,c=2*Math.PI*r;
+    const clamped=Math.max(0,Math.min(100,pct));
+    const offset=c*(1-clamped/100);
+    return '<div class="ring-wrap">'+
+      '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" style="transform:rotate(-90deg)">'+
+        '<circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="var(--line)" stroke-width="'+stroke+'"/>'+
+        '<circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="var('+colorVar+')" stroke-width="'+stroke+'" '+
+          'stroke-linecap="round" stroke-dasharray="'+c.toFixed(1)+'" stroke-dashoffset="'+offset.toFixed(1)+'"/>'+
+      '</svg>'+
+      '<div class="ring-center"><span class="ring-pct">'+Math.round(pct)+'%</span><span class="ring-label">of goal</span></div>'+
+    '</div>';
+  }
+
+  /* Overall feature mix as a donut — same fixed bucket order/colors as the
+     bar chart and legend it sits beside, so it's a second view of the same
+     data rather than a competing encoding. A conic-gradient plus a punched-
+     out center is enough for this — no SVG arc math needed for 3 segments. */
+  function donutChart(g){
+    if(!g.total){
+      return '<div class="ring-wrap" style="width:110px;height:110px">'+
+        '<div class="donut-ring" style="width:100%;height:100%;border-radius:999px;background:var(--bg);border:1px solid var(--line)"></div>'+
+        '<div class="ring-center"><span class="ring-pct" style="font-size:13px">No data</span></div>'+
+      '</div>';
+    }
+    const p1=g.launch/g.total*100, p2=p1+g.phase2/g.total*100;
+    const grad='conic-gradient(var(--bucket-launch-solid) 0% '+p1.toFixed(2)+'%, '+
+      'var(--bucket-phase2-solid) '+p1.toFixed(2)+'% '+p2.toFixed(2)+'%, '+
+      'var(--bucket-bau-solid) '+p2.toFixed(2)+'% 100%)';
+    return '<div class="ring-wrap" style="width:110px;height:110px">'+
+      '<div class="donut-ring" style="width:100%;height:100%;border-radius:999px;background:'+grad+'"></div>'+
+      '<div class="ring-center" style="inset:14px;background:var(--panel);border-radius:999px">'+
+        '<span class="ring-pct">'+g.total+'</span><span class="ring-label">features</span>'+
+      '</div>'+
+    '</div>';
+  }
+
   async function loadReport(){
     const body=document.getElementById('reportbody');
     body.innerHTML='<p class="sub">Loading…</p>';
@@ -1323,6 +1417,7 @@ function bootApp(storageConfigured){
     const totalTarget=MODULES.length*SESSION_TARGET_PER_MODULE;
     const totalSessions=index.length;
     const overall=groupFeatures(features);
+    const sessionPct=totalTarget>0 ? (totalSessions/totalTarget*100) : 0;
 
     const rows=MODULES.map(function(m){
       const sessionCount=index.filter(function(s){ return s.module===m.id; }).length;
@@ -1331,12 +1426,26 @@ function bootApp(storageConfigured){
     });
 
     body.innerHTML=
-      '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Overall progress</h3>'+
-        '<p class="hint" style="margin:0 0 6px">Sessions held (goal: '+SESSION_TARGET_PER_MODULE+' per session type)</p>'+
-        pbar(totalSessions,totalTarget)+
-        '<p class="hint" style="margin:18px 0 6px">Features across all modules</p>'+
-        hbarLegend()+
-        hbarRow('All modules', overall)+
+      '<div class="stat-grid">'+
+        statTile('Sessions held', totalSessions, 'of '+totalTarget+' goal', '--accent')+
+        statTile('Features logged', overall.total, 'across '+MODULES.length+' session types', '--bucket-launch-solid')+
+        statTile('Complete', overall.complete, overall.total?Math.round(overall.complete/overall.total*100)+'% of all features':'—', '--bucket-bau-solid')+
+        statTile('Requirements done', overall.requirementsDone, overall.total?Math.round(overall.requirementsDone/overall.total*100)+'% of all features':'—', '--bucket-phase2-solid')+
+      '</div>'+
+      '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300">'+
+        '<h3>Overall progress</h3>'+
+        '<div class="hero-row">'+
+          ringSvg(sessionPct,'--accent')+
+          '<div>'+
+            '<p class="hint" style="margin:0 0 8px">Sessions held toward the '+SESSION_TARGET_PER_MODULE+'-per-session-type goal</p>'+
+            pbar(totalSessions,totalTarget)+
+          '</div>'+
+        '</div>'+
+        '<p class="hint" style="margin:20px 0 8px">Feature mix across all modules</p>'+
+        '<div class="donut-row">'+
+          donutChart(overall)+
+          '<div>'+hbarLegend()+hbarRow('All modules', overall)+'</div>'+
+        '</div>'+
       '</div>'+
       '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>By session type</h3>'+
         hbarLegend()+
