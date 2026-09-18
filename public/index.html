@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Product Discovery Sessions</title>
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<!-- Tailwind Play CDN: zero build step, matching this repo's no-build-tooling
+     architecture. It watches the DOM for new class names, so utility classes
+     used inside JS-rendered innerHTML (the whole app) are picked up live, not
+     just what's in the static markup below. All existing color/dark-mode
+     theming stays on the CSS custom properties defined here — Tailwind is
+     used for motion/depth (transitions, hover states, shadows), not to
+     replace that token system. -->
+<script src="https://cdn.tailwindcss.com"></script>
 <style>
 :root{
   --bg:#f5f6f8; --panel:#ffffff; --ink:#16181d; --ink-2:#3a3f4a; --ink-3:#6b7280;
@@ -158,9 +166,6 @@ details.transcript summary{cursor:pointer;color:var(--ink-2);font-size:13px;padd
 details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--ink-2);
   max-height:400px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px;margin-top:10px}
 .genwait{display:flex;align-items:center;gap:10px;color:var(--ink-3);padding:30px 0}
-.spinner{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);
-  border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 .errpanel{background:var(--crit-bg);color:var(--crit-ink);border-radius:12px;padding:16px 20px;margin-bottom:16px}
 .errpanel .code{font-size:12px;opacity:.8;margin-top:4px}
 .warnpanel{background:var(--warn-bg);color:var(--warn-ink);border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:13.5px}
@@ -192,8 +197,9 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 .pitem-text{flex:1}
 .pitem-controls{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
 .pitem-controls select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--line);
-  background:var(--panel);color:var(--ink)}
+  background:var(--panel);color:var(--ink);transition:border-color .15s ease}
 .pitem-controls button{font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);
+  transition:border-color .15s ease,color .15s ease;
   background:var(--panel);color:var(--ink-2);cursor:pointer}
 .pitem-controls button:hover{border-color:var(--accent)}
 .pitem-controls button.removebtn:hover{border-color:var(--crit-ink);color:var(--crit-ink)}
@@ -259,7 +265,7 @@ try{var _t=localStorage.getItem('pds-theme');
     <label for="pw">Password</label>
     <input id="pw" name="password" type="password" autocomplete="current-password"
       autocapitalize="off" spellcheck="false" required>
-    <button type="submit" id="gatego">Sign in</button>
+    <button type="submit" id="gatego" class="transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]">Sign in</button>
     <p class="gate-err" id="gateerr" role="alert" hidden></p>
   </form>
 </div>
@@ -269,14 +275,14 @@ try{var _t=localStorage.getItem('pds-theme');
   <div class="wrap hrow">
     <div class="brand">Product Discovery Sessions<span>Firefish, internal</span></div>
     <div class="hactions">
-      <a href="#sessions" class="tbtn" id="nav-sessions">Sessions</a>
-      <a href="#modules" class="tbtn" id="nav-modules">Modules</a>
-      <a href="#quotes" class="tbtn" id="nav-quotes">Quote Wall</a>
-      <a href="#gtm" class="tbtn" id="nav-gtm">Go-to-Market</a>
-      <a href="#report" class="tbtn" id="nav-report">Reports</a>
-      <span id="storagewarn" class="tbtn" style="display:none;border-color:var(--crit-ink);color:var(--crit-ink)" title="No storage linked — nothing will save">Storage not linked</span>
-      <button class="tbtn" id="theme">Dark</button>
-      <button class="tbtn" id="signout">Sign out</button>
+      <a href="#sessions" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-sessions">Sessions</a>
+      <a href="#modules" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-modules">Modules</a>
+      <a href="#quotes" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-quotes">Quote Wall</a>
+      <a href="#gtm" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-gtm">Go-to-Market</a>
+      <a href="#report" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-report">Reports</a>
+      <span id="storagewarn" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" style="display:none;border-color:var(--crit-ink);color:var(--crit-ink)" title="No storage linked — nothing will save">Storage not linked</span>
+      <button class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="theme">Dark</button>
+      <button class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="signout">Sign out</button>
     </div>
   </div>
 </header>
@@ -292,7 +298,7 @@ try{var _t=localStorage.getItem('pds-theme');
         <input type="search" class="filterin" id="filterin" placeholder="Filter by customer or interviewer…">
         <select class="sel" id="modulefilter"><option value="">All modules</option></select>
       </div>
-      <button type="button" class="btn" id="newbtn">+ New session</button>
+      <button type="button" class="btn transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" id="newbtn">+ New session</button>
     </div>
     <div id="tablewrap"></div>
   </section>
@@ -307,8 +313,8 @@ try{var _t=localStorage.getItem('pds-theme');
           <select id="f-customerName" name="customerName" required></select>
           <div class="addclient" id="addclientrow" hidden>
             <input type="text" id="newclientname" maxlength="200" placeholder="New client name">
-            <button type="button" class="btn small" id="addclientbtn">Add</button>
-            <button type="button" class="btn ghost small" id="addclientcancel">Cancel</button>
+            <button type="button" class="btn small transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" id="addclientbtn">Add</button>
+            <button type="button" class="btn ghost small transition-all duration-150 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0" id="addclientcancel">Cancel</button>
           </div>
         </div>
         <div class="field">
@@ -341,8 +347,8 @@ try{var _t=localStorage.getItem('pds-theme');
       </div>
       <div class="err-box" id="formerr" hidden></div>
       <div class="formfoot">
-        <button type="submit" class="btn" id="formsubmit">Create and analyze</button>
-        <button type="button" class="btn ghost" id="formcancel">Cancel</button>
+        <button type="submit" class="btn transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" id="formsubmit">Create and analyze</button>
+        <button type="button" class="btn ghost transition-all duration-150 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0" id="formcancel">Cancel</button>
       </div>
     </form>
   </section>
@@ -386,7 +392,7 @@ try{var _t=localStorage.getItem('pds-theme');
         <p class="sub">The monthly board pack: session progress toward the 10-per-type goal, and a
           breakdown of every module's roadmap features by bucket and delivery status.</p>
       </div>
-      <button type="button" class="btn ghost printbtn" id="printreportbtn">Print / save as PDF</button>
+      <button type="button" class="btn ghost printbtn transition-all duration-150 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0" id="printreportbtn">Print / save as PDF</button>
     </div>
     <div id="reportbody"></div>
   </section>
@@ -630,7 +636,7 @@ function bootApp(storageConfigured){
       '<th>Customer</th><th>Module</th><th>Interviewer</th><th>Session date</th><th>Status</th><th>Updated</th>'+
       '</tr></thead><tbody>'+
       rows.map(function(s){
-        return '<tr class="clickable" data-id="'+esc(s.id)+'">'+
+        return '<tr class="clickable transition-colors duration-150" data-id="'+esc(s.id)+'">'+
           '<td>'+esc(s.customerName)+'</td>'+
           '<td>'+esc(moduleLabel(s.module))+'</td>'+
           '<td>'+esc(s.interviewer)+'</td>'+
@@ -794,26 +800,26 @@ function bootApp(storageConfigured){
 
     let analysisBlock;
     if(item.status==='draft' && !a){
-      analysisBlock='<div class="genwait"><span class="spinner"></span>Generating the analysis… this can take a minute or two for a full transcript.</div>';
+      analysisBlock='<div class="genwait"><span class="inline-block w-4 h-4 rounded-full border-2 border-[var(--line)] border-t-[var(--accent)] animate-spin"></span>Generating the analysis… this can take a minute or two for a full transcript.</div>';
     }else if(!a){
       analysisBlock='<p class="sub">No analysis yet. Click Generate to run it.</p>';
     }else{
       const notRaised='<p class="not-raised">Not raised in this call.</p>';
       analysisBlock=
-        '<div class="panel"><h3>Summary</h3><p class="summary-text">'+esc(a.overall_summary||'—')+'</p></div>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Summary</h3><p class="summary-text">'+esc(a.overall_summary||'—')+'</p></div>'+
 
-        '<div class="panel"><h3>Q1 — How it works today, and where it breaks down</h3>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q1 — How it works today, and where it breaks down</h3>'+
           '<p class="summary-text">'+esc(a.today_process.summary||'—')+'</p>'+
           listOrEmpty(a.today_process.breakdown_points,function(p){
             return '<li>'+esc(p.point)+'<div class="evi">'+esc(p.evidence)+'</div></li>';
           })+
         '</div>'+
 
-        '<div class="panel"><h3>Q2 — Value created</h3>'+listOrEmpty(a.value_created.statements,function(v){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q2 — Value created</h3>'+listOrEmpty(a.value_created.statements,function(v){
           return '<li>'+esc(v.value)+'<div class="evi">'+esc(v.evidence)+'</div></li>';
         })+'</div>'+
 
-        '<div class="panel"><h3>Q3 — Who benefits, who doesn\'t</h3>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q3 — Who benefits, who doesn\'t</h3>'+
           '<p class="hint" style="margin:0 0 6px">Benefits most</p>'+
           listOrEmpty(a.user_impact.benefits_most,function(u){
             return '<li>'+esc(u.user_group)+'<div class="evi">'+esc(u.evidence)+'</div></li>';
@@ -824,40 +830,40 @@ function bootApp(storageConfigured){
           })+
         '</div>'+
 
-        '<div class="panel"><h3>Q4 — Adoption blockers</h3>'+listOrEmpty(a.adoption_blockers,function(b){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q4 — Adoption blockers</h3>'+listOrEmpty(a.adoption_blockers,function(b){
           return '<li>'+esc(b.blocker)+'<div class="evi">'+esc(b.evidence)+'</div></li>';
         })+'</div>'+
 
-        '<div class="panel"><h3>Q5 — Compared to v1</h3>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q5 — Compared to v1</h3>'+
           '<p><span class="badge draft">'+esc(verdictLabel(a.v1_comparison.verdict))+'</span></p>'+
           (a.v1_comparison.explanation?'<p class="summary-text">'+esc(a.v1_comparison.explanation)+'</p>':notRaised)+
         '</div>'+
 
-        '<div class="panel"><h3>Q6 — Unclear, incomplete, or hard to trust</h3>'+listOrEmpty(a.trust_concerns,function(c){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q6 — Unclear, incomplete, or hard to trust</h3>'+listOrEmpty(a.trust_concerns,function(c){
           return '<li>'+esc(c.concern)+'<div class="evi">'+esc(c.evidence)+'</div></li>';
         })+'</div>'+
 
-        '<div class="panel"><h3>Q7 — Business-critical gaps blocking migration</h3>'+listOrEmpty(a.migration_blockers,function(m){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q7 — Business-critical gaps blocking migration</h3>'+listOrEmpty(a.migration_blockers,function(m){
           return '<li>'+esc(m.item)+'<div class="evi">'+esc(m.evidence)+'</div></li>';
         })+'</div>'+
 
-        '<div class="panel"><h3>Q8 — What would need to be true to migrate</h3>'+listOrEmpty(a.migration_conditions,function(c){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q8 — What would need to be true to migrate</h3>'+listOrEmpty(a.migration_conditions,function(c){
           return '<li>'+esc(c.condition)+'<div class="evi">'+esc(c.evidence)+'</div></li>';
         })+'</div>'+
 
-        '<div class="panel"><h3>Q9 — Top priority improvement</h3>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q9 — Top priority improvement</h3>'+
           (a.top_priority_improvement.mentioned
             ? '<p class="summary-text"><b>'+esc(a.top_priority_improvement.improvement)+'</b> — '+esc(a.top_priority_improvement.reason)+'</p>'
             : notRaised)+
         '</div>'+
 
-        '<div class="panel"><h3>Q10 — Measurable success metric</h3>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q10 — Measurable success metric</h3>'+
           (a.success_metric.mentioned
             ? '<p class="summary-text">'+esc(a.success_metric.metric)+'<div class="evi">'+esc(a.success_metric.evidence)+'</div></p>'
             : notRaised)+
         '</div>'+
 
-        '<div class="panel"><h3>Q11 — One-sentence pitch to a colleague</h3>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Q11 — One-sentence pitch to a colleague</h3>'+
           (a.one_sentence_pitch.mentioned
             ? '<p class="pullquote">“'+esc(a.one_sentence_pitch.text)+'”</p>'
             : notRaised)+
@@ -874,8 +880,8 @@ function bootApp(storageConfigured){
             ' &middot; <span class="badge '+esc(item.status)+'">'+esc(badgeLabel(item.status))+'</span></div>'+
         '</div>'+
         '<div class="dactions">'+
-          '<button type="button" class="btn" id="regenbtn">'+(a?'Regenerate':'Generate')+' analysis</button>'+
-          '<button type="button" class="btn danger" id="delbtn">Delete</button>'+
+          '<button type="button" class="btn transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" id="regenbtn">'+(a?'Regenerate':'Generate')+' analysis</button>'+
+          '<button type="button" class="btn danger transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" id="delbtn">Delete</button>'+
         '</div>'+
       '</div>'+
       errBlock+
@@ -925,13 +931,13 @@ function bootApp(storageConfigured){
       const st=staleness(trend,readyIds);
       const canBuild=ready.length>0;
       const btnLabel=trend&&trend.builtAt ? 'Refresh trend' : 'Build trend';
-      return '<div class="modrow" data-module="'+esc(m.id)+'">'+
+      return '<div class="modrow shadow-sm hover:shadow-md transition-shadow duration-300" data-module="'+esc(m.id)+'">'+
         '<div><div class="modname">'+esc(m.label)+'</div>'+
           '<div class="modcount">'+ready.length+' analyzed / '+all.length+' total session'+(all.length===1?'':'s')+'</div></div>'+
         '<div class="modright">'+
           '<span class="badge '+st.cls+'">'+esc(st.label)+'</span>'+
-          '<button type="button" class="btn small buildbtn" data-module="'+esc(m.id)+'"'+(canBuild?'':' disabled title="Analyze at least one session for this module first"')+'>'+btnLabel+'</button>'+
-          '<a href="#modules/'+esc(m.id)+'" class="btn ghost small">View</a>'+
+          '<button type="button" class="btn small buildbtn transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" data-module="'+esc(m.id)+'"'+(canBuild?'':' disabled title="Analyze at least one session for this module first"')+'>'+btnLabel+'</button>'+
+          '<a href="#modules/'+esc(m.id)+'" class="btn ghost small transition-all duration-150 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0">View</a>'+
         '</div>'+
       '</div>';
     }).join('');
@@ -969,7 +975,7 @@ function bootApp(storageConfigured){
   function sessionChip(id, index){
     const s=index.find(function(x){ return x.id===id; });
     const label=s ? esc(s.customerName)+' — '+esc(fmtDate(s.sessionDate)) : id;
-    return '<a class="chip" href="#sessions/'+esc(id)+'">'+label+'</a>';
+    return '<a class="chip transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm" href="#sessions/'+esc(id)+'">'+label+'</a>';
   }
   function chips(ids, index){
     if(!ids || !ids.length) return '';
@@ -989,7 +995,7 @@ function bootApp(storageConfigured){
     }
 
     function renderCard(c){
-      return '<div class="pitem'+(c.complete?' complete':'')+'" data-feature-id="'+esc(c.id)+'">'+
+      return '<div class="pitem'+(c.complete?' complete':'')+' transition-all duration-150 hover:shadow-md hover:-translate-y-0.5" data-feature-id="'+esc(c.id)+'">'+
         '<div class="pitem-head"><div class="pitem-text">'+esc(c.item)+'</div></div>'+
         '<div class="rationale">'+esc(c.rationale)+'</div>'+
         chips(c.supporting_session_ids,index)+
@@ -1026,23 +1032,23 @@ function bootApp(storageConfigured){
         : '';
       const valueMoments=Array.isArray(r.value_moments) ? r.value_moments : null;
       const valueMomentsBlock=valueMoments===null
-        ? '<div class="panel"><h3>Value created</h3><p class="hint">This trend was built before Value created existed — click Refresh trend to populate it (this won\'t touch any cards on the board below).</p></div>'
-        : '<div class="panel"><h3>Value created</h3>'+
+        ? '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Value created</h3><p class="hint">This trend was built before Value created existed — click Refresh trend to populate it (this won\'t touch any cards on the board below).</p></div>'
+        : '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Value created</h3>'+
             (valueMoments.length ? valueMoments.map(function(v){
               return '<div style="margin-bottom:14px"><p class="pullquote">"'+esc(v.quote)+'"</p>'+
                 '<div class="evi">'+esc(v.theme)+'</div>'+chips(v.supporting_session_ids,index)+'</div>';
             }).join('') : '<p class="sub" style="margin:0">No standout "wow" moments surfaced yet for this module.</p>')+
           '</div>';
       content=warn+
-        '<div class="panel"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
         valueMomentsBlock+
-        '<div class="panel"><h3>Feature prioritization</h3><div class="prioritycols">'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Feature prioritization</h3><div class="prioritycols">'+
           prioCol('launch','Launch')+prioCol('phase2','Phase 2')+prioCol('bau','Future Considerations')+
         '</div></div>'+
-        '<div class="panel"><h3>Adoption blockers</h3>'+listOrEmpty(r.adoption_blockers,function(b){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Adoption blockers</h3>'+listOrEmpty(r.adoption_blockers,function(b){
           return '<li>'+esc(b.blocker)+'<div class="evi">'+esc(b.impact)+'</div>'+chips(b.supporting_session_ids,index)+'</li>';
         })+'</div>'+
-        '<div class="panel"><h3>Go-to-market messaging</h3>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Go-to-market messaging</h3>'+
           '<p class="summary-text">'+esc(r.gtm_messaging.positioning_statement)+'</p>'+
           (r.gtm_messaging.value_pillars.length ? '<ul>'+r.gtm_messaging.value_pillars.map(function(p){
             return '<li><b>'+esc(p.pillar)+'</b><div class="evi">'+esc(p.evidence_theme)+'</div></li>';
@@ -1059,7 +1065,7 @@ function bootApp(storageConfigured){
           '<div class="subline"><span class="badge '+st.cls+'">'+esc(st.label)+'</span>'+
           (trend&&trend.builtAt?' &middot; Last built '+esc(fmtDateTime(trend.builtAt))+' from '+trend.sessionCountAtBuild+' session'+(trend.sessionCountAtBuild===1?'':'s'):'')+
           '</div></div>'+
-        '<div class="dactions"><button type="button" class="btn" id="refreshtrendbtn"'+(readyIds.length?'':' disabled')+
+        '<div class="dactions"><button type="button" class="btn transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" id="refreshtrendbtn"'+(readyIds.length?'':' disabled')+
           ' title="Adds any newly-surfaced features from the latest sessions — nothing already on the board is touched.">'+
           (trend&&trend.builtAt?'Refresh trend':'Build trend')+'</button></div>'+
       '</div>'+
@@ -1173,21 +1179,21 @@ function bootApp(storageConfigured){
         ? '<div class="warnpanel">Built from only '+trend.sessionCountAtBuild+' session'+(trend.sessionCountAtBuild===1?'':'s')+' — treat this as an early signal, not settled messaging.</div>'
         : '';
       content=warn+
-        '<div class="panel"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
-        '<div class="panel"><h3>Positioning statement</h3><p class="pullquote">'+esc(r.positioning_statement)+'</p></div>'+
-        '<div class="panel"><h3>Value pillars</h3>'+listOrEmpty(r.value_pillars,function(p){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Positioning statement</h3><p class="pullquote">'+esc(r.positioning_statement)+'</p></div>'+
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Value pillars</h3>'+listOrEmpty(r.value_pillars,function(p){
           return '<li><b>'+esc(p.pillar)+'</b><div class="evi">'+esc(p.evidence_theme)+'</div>'+chips(p.supporting_session_ids,index)+'</li>';
         })+'</div>'+
-        '<div class="panel"><h3>Proof points</h3>'+listOrEmpty(r.proof_points,function(p){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Proof points</h3>'+listOrEmpty(r.proof_points,function(p){
           return '<li>'+esc(p.claim)+'<div class="evi">'+esc(p.evidence_theme)+'</div>'+chips(p.supporting_session_ids,index)+'</li>';
         })+'</div>'+
-        '<div class="panel"><h3>Objection handling</h3>'+listOrEmpty(r.objection_handling,function(o){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Objection handling</h3>'+listOrEmpty(r.objection_handling,function(o){
           return '<li><span class="who">'+esc(o.objection)+'</span><div class="evi">'+esc(o.response)+'</div>'+chips(o.supporting_session_ids,index)+'</li>';
         })+'</div>'+
-        '<div class="panel"><h3>Module highlights</h3>'+listOrEmpty(r.module_highlights,function(m){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Module highlights</h3>'+listOrEmpty(r.module_highlights,function(m){
           return '<li><b>'+esc(moduleLabel(m.module))+'</b> — '+esc(m.headline)+chips(m.supporting_session_ids,index)+'</li>';
         })+'</div>'+
-        '<div class="panel"><h3>Draft messages</h3>'+listOrEmpty(r.draft_messages,function(m){
+        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Draft messages</h3>'+listOrEmpty(r.draft_messages,function(m){
           return '<li><span class="who">'+esc(m.audience)+':</span> '+esc(m.message)+'</li>';
         })+'</div>';
     }
@@ -1197,7 +1203,7 @@ function bootApp(storageConfigured){
         '<div class="dmeta"><div class="subline"><span class="badge '+st.cls+'">'+esc(st.label)+'</span>'+
           (trend&&trend.builtAt?' &middot; Last built '+esc(fmtDateTime(trend.builtAt))+' from '+trend.sessionCountAtBuild+' session'+(trend.sessionCountAtBuild===1?'':'s'):'')+
           '</div></div>'+
-        '<div class="dactions"><button type="button" class="btn" id="refreshgtmbtn"'+(readyIds.length?'':' disabled')+'>'+
+        '<div class="dactions"><button type="button" class="btn transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" id="refreshgtmbtn"'+(readyIds.length?'':' disabled')+'>'+
           (trend&&trend.builtAt?'Refresh':'Build')+'</button></div>'+
       '</div>'+
       errBlock+content;
@@ -1232,7 +1238,7 @@ function bootApp(storageConfigured){
       return;
     }
     body.innerHTML=withQuotes.map(function(entry){
-      return '<div class="panel"><h3>'+esc(moduleLabel(entry.module))+'</h3>'+
+      return '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>'+esc(moduleLabel(entry.module))+'</h3>'+
         entry.quotes.map(function(q){
           return '<div style="margin-bottom:14px"><p class="pullquote">"'+esc(q.quote)+'"</p>'+
             '<div class="evi">'+esc(q.theme)+'</div>'+chips(q.supporting_session_ids,index)+'</div>';
@@ -1325,14 +1331,14 @@ function bootApp(storageConfigured){
     });
 
     body.innerHTML=
-      '<div class="panel"><h3>Overall progress</h3>'+
+      '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Overall progress</h3>'+
         '<p class="hint" style="margin:0 0 6px">Sessions held (goal: '+SESSION_TARGET_PER_MODULE+' per session type)</p>'+
         pbar(totalSessions,totalTarget)+
         '<p class="hint" style="margin:18px 0 6px">Features across all modules</p>'+
         hbarLegend()+
         hbarRow('All modules', overall)+
       '</div>'+
-      '<div class="panel"><h3>By session type</h3>'+
+      '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>By session type</h3>'+
         hbarLegend()+
         '<div class="hbar-rows">'+rows.map(function(r){ return hbarRow(r.module.label, r.g); }).join('')+'</div>'+
       '</div>'+

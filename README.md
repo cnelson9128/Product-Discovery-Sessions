@@ -24,7 +24,13 @@ the monthly board pack a real breakdown of features by status per module.
 Distinct from the sibling `competitor-analysis` repo's sales-facing demo-prep tool — this is PM/
 research interviews about product needs, not sales calls. A static shell in `public/`, plus
 serverless functions in `api/` that hold session data. No build step, and one runtime dependency —
-`mammoth`, used only to read uploaded `.docx` transcripts.
+`mammoth`, used only to read uploaded `.docx` transcripts. Styling is Tailwind CSS via the
+[Play CDN](https://tailwindcss.com/docs/installation/play-cdn) (one `<script>` tag, no PostCSS/build
+step, no devDependency) layered on top of a small set of hand-written CSS custom properties that
+still own all theming — light/dark colors and the validated 3-color bucket palette used on the
+roadmap board and the Reports charts. Tailwind utility classes handle layout, motion, and depth
+(transitions, hover states, shadows); color and dark-mode swapping stay on the CSS variables, so
+Tailwind's `dark:` variant system is deliberately unused.
 
 ---
 
