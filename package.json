@@ -6,6 +6,9 @@
   "engines": {
     "node": "22.x"
   },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "dependencies": {
     "mammoth": "^1.12.1"
   }

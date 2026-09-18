@@ -176,28 +176,38 @@ everything else (sign-in, navigation, forms) still works.
    substantively answered. **Regenerate** re-runs the analysis from the same transcript.
 4. The dashboard lists every session with its module, a status badge (Draft/Ready/Error), and text
    + module filters.
-5. **Modules** (top nav) lists all 11 session types with their analyzed/total session counts and trend
-   status. Once a module has at least one analyzed session, **Build trend** synthesizes a **Value
-   created** section (standout "wow" quotes pulled from sessions' own value-created statements and
-   one-sentence pitches — a single striking reaction is enough to earn a spot here, unlike the
-   prioritization buckets below, which need to recur across sessions), feature prioritization — one
-   card per feature, sorted into **Launch** / **Phase 2** / **Future Considerations** — adoption
-   blockers, and draft messaging from every analyzed session tagged to it. The board itself is
-   styled like a Jira/Trello kanban — neutral columns, white cards with a colored left-edge accent
-   matching their bucket, a card count badge on each column header, and an owner avatar (initials,
-   generated from the free-text owner name) on every card — though moving a card is still done via
-   its dropdowns rather than an actual drag gesture. **This is purely additive**: building or
-   refreshing a trend only ever *adds* newly-surfaced feature cards — it never touches, moves, or
-   resets a card already on the board, no matter how many times you rebuild. Every card links back
-   to the specific sessions that support it (resolved to client name + date, never written into the
-   generated text itself — see the anti-fabrication note below), and carries controls to:
+5. **Modules** (top nav) lists all 11 session types with their analyzed/total session counts and
+   trend status. Each module's page always shows its **feature prioritization** board — one card per
+   feature, sorted into **Launch** / **Phase 2** / **Future Considerations** — independent of whether
+   a trend has ever been built for it. That's because cards aren't sourced from a per-module build
+   any more: every session, the moment it's analyzed, is separately scanned for every feature,
+   problem, request, or opportunity it raises, and each one is filed under whichever module its
+   *content* is actually about — not the module the session itself happened to be tagged with. A
+   Search & Match complaint raised mid-way through a Job Workflows or Introduction session lands
+   under Search & Match, automatically, with no "Build" click needed. Each card shows the module it's
+   confident about; a low-confidence classification gets a **Needs review** pill and an expandable
+   "Why here?" panel with the classifier's reasoning, the transcript evidence, and any secondary
+   module it's also relevant to. The board is styled like a Jira/Trello kanban — neutral columns,
+   white cards with a colored left-edge accent matching their bucket, a card count badge on each
+   column header, and an owner avatar (initials, generated from the free-text owner name) on every
+   card — though moving a card is still done via its dropdowns rather than an actual drag gesture.
+   Every card links back to the specific session it came from (resolved to client name + date, never
+   written into the generated text itself — see the anti-fabrication note below), and carries
+   controls to:
    - **Move it to a different bucket**, or **to a different module entirely** (two dropdowns — the
-     bucket dropdown doubles as a colored status pill).
+     bucket dropdown doubles as a colored status pill). Moving it to a different module is a manual
+     override: the parser will never move it again on a later re-analysis, and a **📌 Manual** button
+     appears to hand it back — click it to restore the parser's own classification.
    - **Assign an owner** (free text, inline on the card, shown as an initials avatar).
    - **Mark requirements done** (a checkbox — independent of delivery) and/or **mark complete**.
    - **Remove it** from the board (with a confirmation — this one has no undo).
 
-   All of these save immediately, independent of any rebuild.
+   All of these save immediately, independent of any rebuild. **Build trend** (still available per
+   module) is now purely a narrative synthesis — a **Value created** section (standout "wow" quotes
+   pulled from sessions' own value-created statements and one-sentence pitches — a single striking
+   reaction is enough to earn a spot here), adoption blockers, and draft GTM messaging, from every
+   analyzed session tagged to that module. It's unrelated to feature cards and never creates, moves,
+   or removes one — a failed or repeated build can't corrupt the board either way.
 6. **Quote Wall** (top nav) pulls every module's "wow" quotes into one place, shown as a wall of
    individual quote cards (grouped by module) rather than a stacked list — the same card treatment
    used for the "Value created" quotes on each module's own trend page. Each is attributed to a
@@ -229,9 +239,10 @@ generate the per-session analysis, and everything is stored in the same Redis st
 upload additionally passes through this app's own server (never a third party) to be converted to
 text. Don't paste anything into it that shouldn't leave the building.
 
-**No synthesis prompt ever writes a client name into generated text** — the module-trend and
-Go-to-Market prompts, and the Quote Wall's underlying data. Each is given a session's client name
-only so it can reason about which distinct customers said what, but every output item cites
+**No synthesis prompt ever writes a client name into generated text** — the raised-items extraction
+that feeds feature cards, the module-trend and Go-to-Market prompts, and the Quote Wall's underlying
+data. Each is given a session's client name only so it can reason about which distinct customers
+said what, but every output item cites
 `supporting_session_ids` instead of naming anyone — the frontend resolves those to client/date
 chips from data it already trusts (the session list), not from model recall. A "wow" quote is
 constrained to cite exactly one session id, since it's meant to be one person's specific reaction —
@@ -240,12 +251,14 @@ the model to write a name. This avoids a real attribution-error risk once synthe
 sessions, and makes messaging drafts structurally incapable of leaking a client name into copy that
 might get reused externally.
 
-**Cost**, at `claude-opus-5` rates: roughly a few cents per session analysis, and a similar order of
-magnitude per module-trend or Go-to-Market build depending on how many sessions feed it (the
-Go-to-Market build reads every analyzed session across every module, so it's the priciest single
-generation in the app once the program is at full scale — still comfortably a few cents to low tens
-of cents, not dollars). There's no rate limiting on who can trigger a generation beyond being signed
-in — acceptable for a small internal tool, worth revisiting if usage patterns suggest otherwise.
+**Cost**, at `claude-opus-5` rates: roughly a few cents per session analysis, plus a similar small
+call for that session's feature/module classification (runs in parallel, so it adds no wait time),
+and a similar order of magnitude per module-trend or Go-to-Market build depending on how many
+sessions feed it (the Go-to-Market build reads every analyzed session across every module, so it's
+the priciest single generation in the app once the program is at full scale — still comfortably a
+few cents to low tens of cents, not dollars). There's no rate limiting on who can trigger a
+generation beyond being signed in — acceptable for a small internal tool, worth revisiting if usage
+patterns suggest otherwise.
 
 ## How it fits together
 
@@ -260,31 +273,44 @@ api/             serverless functions (zero-config, picked up by Vercel)
   session.js               "am I signed in?", called on page load
   clients.js              managed client list (GET) + add (POST) — session required
   sessions.js             list/detail (GET) + create/update/delete (POST) — session required
-  sessions-analyze.js     generates/regenerates a session's 11-question analysis — longer maxDuration
+  sessions-analyze.js     generates/regenerates a session's 11-question analysis AND its raised-items
+                          extraction (in parallel) — longer maxDuration
   module-trends.js        module trend metadata/detail (GET) — session required
-  module-trends-build.js  (re)builds a module's trend, purely additive to the feature board — longer maxDuration
-  features.js             CRUD for roadmap feature cards: list/filter (GET), update/delete (POST) — session required
+  module-trends-build.js  (re)builds a module's narrative trend (overview/quotes/blockers/GTM) —
+                          longer maxDuration; does not touch feature cards at all
+  features.js             CRUD for roadmap feature cards: list/filter (GET), update/delete/
+                          resetClassification (POST) — session required
   quote-wall.js           every module's "wow" quotes in one response (GET) — session required
   gtm-messaging.js        overall go-to-market record (GET) — session required
   gtm-messaging-build.js  (re)builds it from every analyzed session across all modules — longer maxDuration
   parse-transcript.js     .docx -> plain text via mammoth — session required
   admin-migrate-features.js  one-time, idempotent: migrates any pre-upgrade trend's embedded cards
                           into pds:feature:index — see "Upgrading" below
+  admin-reclassify-features.js  one-time (but re-runnable), idempotent: backfills raisedItems for
+                          sessions analyzed before content-based classification shipped, and
+                          reclassifies legacy feature cards — longer maxDuration, see "Upgrading" below
 lib/             never served over HTTP
   auth.js              HMAC session tokens, constant-time password check, single shared password
   store.js             Redis REST access — sessions, clients, roadmap features, module trends, the
                        gtm record, login throttling
   modules.js            the 11 fixed session types (id + label) and validation
   analysis.js           builds the per-session 11-question analysis prompt
-  module-trends.js       builds the per-module trend synthesis prompt — still generates now/later/
-                          future internally (a sensible LLM vocabulary), converted to this program's
-                          real bucket names (launch/phase2/bau) at persist time
-  trend-cards.js          converts a trend's raw model output into candidate roadmap-feature items;
-                          validates bucket ids. Has no opinion on id/owner/complete/requirementsDone —
-                          those belong to the persisted feature record, not any one build's output
+  raised-items.js        builds the per-session extraction prompt: every feature/problem/request/
+                          opportunity raised, classified by content into the module it's actually
+                          about — independent of the session's own tagged module
+  module-classification.js  single source of truth for what each module means (used by both
+                          raised-items.js and the standalone reclassifier below) and the shared
+                          classification JSON-schema fragment
+  feature-sync.js         turns one session's extracted items into feature-index records, keyed so
+                          re-analysis updates a card in place and never touches a manually-moved one
+  buckets.js              the three roadmap priority buckets (launch/phase2/bau) and validation
+  module-trends.js       builds the per-module narrative trend synthesis prompt (overview, "wow"
+                          quotes, adoption blockers, GTM messaging) — no longer touches feature cards
   gtm-messaging.js        builds the overall, cross-module go-to-market synthesis prompt
-  anthropic-client.js    shared streaming call + error handling, used by all three prompt files above
-vercel.json      static root, security headers, all three long-running build endpoints' maxDuration
+  anthropic-client.js    shared streaming call + error handling, used by every prompt file above
+vercel.json      static root, security headers, every long-running build endpoint's maxDuration
+test/            node --test suite (`npm test`) — feature classification/sync, the features API's
+                 pure validation/patch logic, and the reclassify endpoint's idempotency
 package.json     pins Node 22. One dependency (mammoth). No build script.
 ```
 
@@ -300,9 +326,9 @@ IP — 10 in 15 minutes — when Redis is linked.
 | Key | Holds |
 |---|---|
 | `pds:session:index` | Lightweight metadata (incl. `module`) for every session — no transcript, no analysis. What the dashboard and module-count views read. |
-| `pds:session:<id>` | One session's full record: metadata, transcript, and the 11-question analysis. Fetched only when that session's detail view is opened, or when building a module trend. |
+| `pds:session:<id>` | One session's full record: metadata, transcript, the 11-question `analysis`, and the separate `raisedItems` extraction (every feature/problem/request/opportunity found in the transcript, each pre-classified into its module). Fetched only when that session's detail view is opened, when building a module's narrative trend, or when syncing feature cards. |
 | `pds:clients` | A JSON array of managed client names. |
-| `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, item, rationale, supporting_session_ids}` (model-authored, never user-editable) plus `{bucket, owner, complete, requirementsDone}` (user-editable via `api/features.js`) and `createdAt`/`updatedAt`. `module` is mutable — reassigning it *is* "move between modules." |
+| `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, secondaryModules, confidence, classificationReason, item, rationale, evidenceQuote, supporting_session_ids, sourceSessionId, sourceItemKey}` (model-authored/classified, only `module` user-editable — see below) plus `{bucket, owner, complete, requirementsDone}` (fully user-editable via `api/features.js`), `isManualModule`/`moduleHistory` (set when a human moves `module` by hand — see "Manual overrides" below), and `createdAt`/`updatedAt`. `sourceSessionId`+`sourceItemKey` (`` `${sessionId}#${itemIndex}` ``) link a card back to the exact extracted item it came from, so re-analyzing that session updates the same card rather than duplicating it. |
 | `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, and the synthesized result — `overview_summary`, `value_moments` (the "wow" quotes, each citing exactly one session id), `adoption_blockers`, `gtm_messaging`. No longer holds feature cards or counts — those live in `pds:feature:index` now and are computed live wherever they're needed. |
 | `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |
 
@@ -319,12 +345,37 @@ separate invalidation step to remember. A failed rebuild persists the error but 
 `result`, so a bad refresh never wipes a working trend or the go-to-market record — and never
 touches `pds:feature:index` at all, so a failed rebuild can't corrupt the board either.
 
+## Manual overrides on a feature card's module
+
+Moving a card to a different module (the module dropdown on its card) is always a manual override:
+it sets `isManualModule` and appends `{at, from, to}` to `moduleHistory` (there's no per-user
+identity in this app — one shared password, no roles — so "who" isn't recorded, only when and
+between which two modules). From then on, `lib/feature-sync.js` will never move that card again on a
+later re-analysis of its source session — only its `item`/`rationale`/`evidenceQuote` text still
+refreshes, since that's the parser's read of what was said, not a classification judgment call. A
+**📌 Manual** button appears on the card; clicking it (`resetClassification`) hands it back to the
+parser — recomputed instantly from the session's already-stored classification when the card is
+linked to one, or via one small reclassification call for a legacy card that isn't.
+
+## Upgrading from before content-based classification
+
+If this deployment already has feature cards from before per-item content-based classification
+shipped, hit `POST /api/admin-reclassify-features` once after deploying — from a signed-in browser
+console, or `curl -b <your session cookie> https://<domain>/api/admin-reclassify-features -X POST`.
+It backfills `raisedItems` for any already-analyzed session that predates this feature (without
+touching that session's existing 11-question `analysis`) and syncs feature cards from it, then
+reclassifies any remaining legacy card that isn't yet linked to a specific extracted item and hasn't
+been manually moved. It's idempotent — safe to run more than once; a session or card already handled
+is skipped on a later call, so if a large backlog doesn't finish inside one request's time limit,
+just call it again.
+
 ## Upgrading from before the roadmap-board change
 
-If this deployment already has module trends built under the old model (feature cards nested
+If this deployment already has module trends built under the even older model (feature cards nested
 inside each `pds:trend:<moduleId>.result.cards`), hit `POST /api/admin-migrate-features` once after
 deploying — from a signed-in browser console, or `curl -b <your session cookie>
 https://<domain>/api/admin-migrate-features -X POST`. It moves every old-shape card into
 `pds:feature:index` (keeping its existing id, bucket, and completion state) and strips the
 now-unused `cards`/`counts` fields from each trend record. It's idempotent — safe to run more than
-once, and a true no-op on a deployment with nothing to migrate (including a brand-new install).
+once, and a true no-op on a deployment with nothing to migrate (including a brand-new install). Run
+this one first if it applies, then `admin-reclassify-features` above.

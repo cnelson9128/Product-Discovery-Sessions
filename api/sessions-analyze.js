@@ -4,12 +4,23 @@ const auth = require('../lib/auth');
 const store = require('../lib/store');
 const analysis = require('../lib/analysis');
 const modules = require('../lib/modules');
+const raisedItems = require('../lib/raised-items');
+const featureSync = require('../lib/feature-sync');
 
 /*
  * Generates (or regenerates) the analysis for one discovery session. Split
  * out from api/sessions.js because this is the one slow, expensive operation
  * in this feature — an LLM call, not a Redis round trip — and needs its own
  * maxDuration in vercel.json.
+ *
+ * Runs the 11-question analysis and the raised-items extraction (which
+ * feeds the roadmap board's feature cards, classified by content — see
+ * lib/raised-items.js) in parallel: both only need the transcript, so this
+ * adds no wall-clock cost over the single call that used to happen here. A
+ * raised-items failure is captured on `raisedItemsError` and never fails
+ * this request or blocks the (already-working) 11-question result from
+ * saving — the Sessions tab must keep working exactly as it does today even
+ * if the newer, separate extraction has a bad day.
  */
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -37,18 +48,50 @@ module.exports = async function handler(req, res) {
   if (!record) return res.status(404).json({ error: 'No session with that id.' });
 
   try {
-    const result = await analysis.generateAnalysis(record, modules.labelFor(record.module));
+    const moduleLabel = modules.labelFor(record.module);
+    const [analysisResult, raisedItemsOutcome] = await Promise.all([
+      analysis.generateAnalysis(record, moduleLabel),
+      raisedItems.extractRaisedItems(record, moduleLabel).catch(function (err) {
+        return { error: (err && err.message) || 'unknown error' };
+      })
+    ]);
+
+    const now = new Date().toISOString();
     const updated = Object.assign({}, record, {
-      analysis: result.analysis,
-      analysisModel: result.model,
-      analysisGeneratedAt: new Date().toISOString(),
+      analysis: analysisResult.analysis,
+      analysisModel: analysisResult.model,
+      analysisGeneratedAt: now,
       status: 'ready',
       lastError: null,
       lastErrorCode: null,
       lastErrorAt: null,
-      updatedAt: new Date().toISOString()
+      updatedAt: now
     });
+
+    if (raisedItemsOutcome.error) {
+      updated.raisedItemsError = raisedItemsOutcome.error;
+      /* Keep whatever raisedItems this session already had (e.g. from a
+         previous successful Regenerate) rather than wiping it on a
+         transient failure. */
+    } else {
+      updated.raisedItems = raisedItemsOutcome.raisedItems;
+      updated.raisedItemsModel = raisedItemsOutcome.model;
+      updated.raisedItemsGeneratedAt = now;
+      updated.raisedItemsError = null;
+    }
+
     await store.writeSession(body.id, updated);
+
+    if (!raisedItemsOutcome.error) {
+      try {
+        await featureSync.syncFeaturesForSession(updated);
+      } catch (syncErr) {
+        updated.raisedItemsError = 'Extracted, but could not sync feature cards: ' +
+          ((syncErr && syncErr.message) || 'unknown error');
+        await store.writeSession(body.id, updated);
+      }
+    }
+
     await syncIndexStatus(body.id, 'ready', updated.updatedAt);
     return res.status(200).json({ ok: true, item: updated });
   } catch (err) {

@@ -238,6 +238,15 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 .reqdonebox{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-2);cursor:pointer;
   user-select:none;margin-left:auto}
 .reqdonebox input{cursor:pointer}
+.needs-review-pill{flex-shrink:0;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+  background:var(--warn-bg);color:var(--warn-ink);border-radius:999px;padding:2px 8px}
+.classify-details{margin-top:8px;font-size:12px}
+.classify-details summary{cursor:pointer;color:var(--ink-3);user-select:none}
+.classify-details summary:hover{color:var(--accent)}
+.classify-details p{margin:6px 0 0;color:var(--ink-2)}
+.classify-details p.evi{font-style:italic;color:var(--ink-3)}
+.pitem-controls button.resetclassifybtn{background:var(--warn-bg);color:var(--warn-ink);border-color:transparent}
+.pitem-controls button.resetclassifybtn:hover{filter:brightness(1.08);border-color:transparent;color:var(--warn-ink)}
 
 .hbar-legend{display:flex;gap:16px;align-items:center;margin-bottom:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
 .hbar-legend .swatch{display:inline-flex;align-items:center;gap:6px}
@@ -534,7 +543,7 @@ const MODULES=[
 ];
 function moduleLabel(id){ const m=MODULES.find(function(x){return x.id===id}); return m?m.label:id; }
 
-/* Must match lib/trend-cards.js's BUCKETS exactly. */
+/* Must match lib/buckets.js's BUCKETS exactly. */
 const BUCKETS=[
   {id:'launch',label:'Launch'},
   {id:'phase2',label:'Phase 2'},
@@ -1061,11 +1070,19 @@ function bootApp(storageConfigured){
     function renderCard(c){
       const solid='var('+BUCKET_SOLID_VAR[c.bucket]+')';
       const av=initials(c.owner);
+      const hasClassifyInfo=c.classificationReason||c.evidenceQuote||(c.secondaryModules&&c.secondaryModules.length);
       return '<div class="pitem'+(c.complete?' complete':'')+' transition-all duration-150 hover:shadow-lg hover:-translate-y-0.5" '+
         'style="border-left-color:'+solid+'" data-feature-id="'+esc(c.id)+'">'+
-        '<div class="pitem-head"><div class="pitem-text">'+esc(c.item)+'</div></div>'+
+        '<div class="pitem-head"><div class="pitem-text">'+esc(c.item)+'</div>'+
+          (c.confidence==='low'?'<span class="needs-review-pill" title="Low-confidence module classification — worth a glance">Needs review</span>':'')+
+        '</div>'+
         '<div class="rationale">'+esc(c.rationale)+'</div>'+
         chips(c.supporting_session_ids,index)+
+        (hasClassifyInfo ? '<details class="classify-details"><summary>Why '+esc(moduleLabel(c.module))+'?</summary>'+
+          (c.classificationReason?'<p>'+esc(c.classificationReason)+'</p>':'')+
+          (c.evidenceQuote?'<p class="evi">“'+esc(c.evidenceQuote)+'”</p>':'')+
+          (c.secondaryModules&&c.secondaryModules.length?'<p class="hint">Also relevant to: '+c.secondaryModules.map(function(id){ return esc(moduleLabel(id)); }).join(', ')+'</p>':'')+
+        '</details>' : '')+
         '<div class="pitem-controls">'+
           '<select class="movesel" data-feature-id="'+esc(c.id)+'" title="Bucket" style="background:'+solid+';color:#fff">'+
             BUCKETS.map(function(b){ return '<option value="'+b.id+'"'+(b.id===c.bucket?' selected':'')+'>'+esc(b.label)+'</option>'; }).join('')+
@@ -1073,6 +1090,7 @@ function bootApp(storageConfigured){
           '<select class="cardmodulesel" data-feature-id="'+esc(c.id)+'" title="Module">'+
             MODULES.map(function(m){ return '<option value="'+m.id+'"'+(m.id===c.module?' selected':'')+'>'+esc(m.label)+'</option>'; }).join('')+
           '</select>'+
+          (c.isManualModule ? '<button type="button" class="resetclassifybtn" data-feature-id="'+esc(c.id)+'" title="Manually assigned — click to let auto-classification take over again">📌 Manual</button>' : '')+
           '<label class="reqdonebox" title="Requirements done"><input type="checkbox" class="reqdonebox-input" data-feature-id="'+esc(c.id)+'"'+(c.requirementsDone?' checked':'')+'> Reqs</label>'+
         '</div>'+
         '<div class="pitem-controls-secondary">'+
@@ -1093,9 +1111,21 @@ function bootApp(storageConfigured){
       '</div>';
     }
 
-    let content;
+    /* Feature cards are classified per-session, independent of whether this
+       module's narrative trend has ever been built (see
+       api/module-trends-build.js's header) — so the prioritization board
+       always renders from `features`, even when there's no trend yet. Only
+       the narrative panels below it (overview/value created/adoption
+       blockers/GTM) depend on a build having run. */
+    const prioritizationPanel=
+      '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Feature prioritization</h3><div class="prioritycols">'+
+        prioCol('launch','Launch')+prioCol('phase2','Phase 2')+prioCol('bau','Future Considerations')+
+      '</div></div>';
+
+    let narrative;
     if(!trend || !trend.result){
-      content='<div class="empty">Not built yet — go to <a href="#modules">Modules</a> and click Build trend for '+esc(label)+'.</div>';
+      narrative='<div class="empty">No narrative trend built yet — go to <a href="#modules">Modules</a> and click Build trend for '+esc(label)+
+        ' to generate an overview, value-created quotes, adoption blockers, and GTM messaging. Feature cards above are unaffected either way.</div>';
     }else{
       const r=trend.result;
       const warn=trend.sessionCountAtBuild<3
@@ -1103,18 +1133,15 @@ function bootApp(storageConfigured){
         : '';
       const valueMoments=Array.isArray(r.value_moments) ? r.value_moments : null;
       const valueMomentsBlock=valueMoments===null
-        ? '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Value created</h3><p class="hint">This trend was built before Value created existed — click Refresh trend to populate it (this won\'t touch any cards on the board below).</p></div>'
+        ? '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Value created</h3><p class="hint">This trend was built before Value created existed — click Refresh trend to populate it (this won\'t touch any cards on the board above).</p></div>'
         : '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Value created</h3>'+
             (valueMoments.length ? '<div class="quote-grid">'+valueMoments.map(function(v){
               return quoteCard(v.quote, v.theme, chips(v.supporting_session_ids,index));
             }).join('')+'</div>' : '<p class="sub" style="margin:0">No standout "wow" moments surfaced yet for this module.</p>')+
           '</div>';
-      content=warn+
+      narrative=warn+
         '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
         valueMomentsBlock+
-        '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Feature prioritization</h3><div class="prioritycols">'+
-          prioCol('launch','Launch')+prioCol('phase2','Phase 2')+prioCol('bau','Future Considerations')+
-        '</div></div>'+
         '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Adoption blockers</h3>'+listOrEmpty(r.adoption_blockers,function(b){
           return '<li>'+esc(b.blocker)+'<div class="evi">'+esc(b.impact)+'</div>'+chips(b.supporting_session_ids,index)+'</li>';
         })+'</div>'+
@@ -1128,6 +1155,7 @@ function bootApp(storageConfigured){
           }).join('')+'</ul>' : '')+
         '</div>';
     }
+    const content=prioritizationPanel+narrative;
 
     body.innerHTML=
       '<div class="dhead">'+
@@ -1136,7 +1164,7 @@ function bootApp(storageConfigured){
           (trend&&trend.builtAt?' &middot; Last built '+esc(fmtDateTime(trend.builtAt))+' from '+trend.sessionCountAtBuild+' session'+(trend.sessionCountAtBuild===1?'':'s'):'')+
           '</div></div>'+
         '<div class="dactions"><button type="button" class="btn transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" id="refreshtrendbtn"'+(readyIds.length?'':' disabled')+
-          ' title="Adds any newly-surfaced features from the latest sessions — nothing already on the board is touched.">'+
+          ' title="Regenerates this module\'s overview, value-created quotes, adoption blockers, and GTM messaging from its tagged sessions. Feature cards are created automatically as sessions are analyzed and are not affected by this.">'+
           (trend&&trend.builtAt?'Refresh trend':'Build trend')+'</button></div>'+
       '</div>'+
       errBlock+content;
@@ -1166,6 +1194,16 @@ function bootApp(storageConfigured){
           action:'update',id:sel.dataset.featureId,module:sel.value
         })});
         if(!res.ok){ alert(res.body.error||'Could not move the card to that module.'); }
+        await openModuleDetail(moduleId);
+      });
+    });
+    body.querySelectorAll('.resetclassifybtn').forEach(function(btn){
+      btn.addEventListener('click',async function(){
+        btn.disabled=true; btn.textContent='Resetting…';
+        const res=await api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'resetClassification',id:btn.dataset.featureId
+        })});
+        if(!res.ok){ alert(res.body.error||'Could not reset classification.'); }
         await openModuleDetail(moduleId);
       });
     });
@@ -1339,7 +1377,8 @@ function bootApp(storageConfigured){
       bau: features.filter(function(f){ return f.bucket==='bau'; }).length,
       total: features.length,
       complete: features.filter(function(f){ return f.complete; }).length,
-      requirementsDone: features.filter(function(f){ return f.requirementsDone; }).length
+      requirementsDone: features.filter(function(f){ return f.requirementsDone; }).length,
+      needsReview: features.filter(function(f){ return f.confidence==='low'; }).length
     };
   }
 
@@ -1455,6 +1494,7 @@ function bootApp(storageConfigured){
         statTile('Features logged', overall.total, 'across '+MODULES.length+' session types', '--bucket-launch-solid')+
         statTile('Complete', overall.complete, overall.total?Math.round(overall.complete/overall.total*100)+'% of all features':'—', '--bucket-bau-solid')+
         statTile('Requirements done', overall.requirementsDone, overall.total?Math.round(overall.requirementsDone/overall.total*100)+'% of all features':'—', '--bucket-phase2-solid')+
+        statTile('Needs review', overall.needsReview, 'low-confidence module classification', '--warn-ink')+
       '</div>'+
       '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300">'+
         '<h3>Overall progress</h3>'+

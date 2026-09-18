@@ -3,7 +3,8 @@
 const auth = require('../lib/auth');
 const store = require('../lib/store');
 const modules = require('../lib/modules');
-const trendCards = require('../lib/trend-cards');
+const buckets = require('../lib/buckets');
+const moduleClassification = require('../lib/module-classification');
 
 const OWNER_MAX = 200;
 
@@ -17,6 +18,14 @@ const OWNER_MAX = 200;
  * evidence-linked — they are never accepted by the update allow-list below.
  * Only `bucket`, `module` (moving a feature between modules), `owner`,
  * `complete`, and `requirementsDone` are user-editable.
+ *
+ * A `module` change here is always a manual override: it sets
+ * `isManualModule`, which tells lib/feature-sync.js to stop touching this
+ * card's module/secondaryModules/confidence/classificationReason on future
+ * syncs, and appends `{at, from, to}` to `moduleHistory` — this app has no
+ * per-user identity (one shared password, no roles), so "who" isn't
+ * recorded, only when and between which two modules. The `resetClassification`
+ * action below is how a human hands a card back to the parser.
  */
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -64,8 +73,8 @@ function validatePatch(body) {
 
   if (body.bucket !== undefined) {
     any = true;
-    if (typeof body.bucket !== 'string' || !trendCards.isValidBucket(body.bucket)) {
-      errors.push('bucket must be one of: ' + trendCards.BUCKETS.join(', '));
+    if (typeof body.bucket !== 'string' || !buckets.isValidBucket(body.bucket)) {
+      errors.push('bucket must be one of: ' + buckets.BUCKETS.join(', '));
     } else {
       out.bucket = body.bucket;
     }
@@ -107,6 +116,45 @@ function validatePatch(body) {
   return { out: out, errors: errors };
 }
 
+/* Pure — no store access, so this is what tests exercise directly. Given a
+   validated patch and the feature it'll be applied to, returns the fields to
+   actually merge: unchanged unless the patch moves `module`, in which case it
+   adds the manual-override flag and audit-trail entry. */
+function applyPatch(feature, patchOut) {
+  const out = Object.assign({}, patchOut);
+  if (out.module !== undefined && out.module !== feature.module) {
+    const history = Array.isArray(feature.moduleHistory) ? feature.moduleHistory.slice() : [];
+    history.push({ at: new Date().toISOString(), from: feature.module, to: out.module });
+    out.moduleHistory = history;
+    out.isManualModule = true;
+  }
+  return out;
+}
+
+/* Pure — maps a classification result (from a session's stored raisedItems
+   entry, or from moduleClassification.classifyExistingItems) onto the
+   feature-record field names. Both sources share the same
+   primary_module/secondary_modules/confidence/classification_reason shape
+   (lib/module-classification.js's CLASSIFICATION_FIELDS). */
+function toRestoredFields(classified) {
+  return {
+    module: classified.primary_module,
+    secondaryModules: classified.secondary_modules || [],
+    confidence: classified.confidence,
+    classificationReason: classified.classification_reason
+  };
+}
+
+/* Pure — the audit-trail entry a resetClassification produces, only if it
+   actually changes the module. */
+function historyForRestore(feature, restored) {
+  const history = Array.isArray(feature.moduleHistory) ? feature.moduleHistory.slice() : [];
+  if (restored.module !== feature.module) {
+    history.push({ at: new Date().toISOString(), from: feature.module, to: restored.module });
+  }
+  return history;
+}
+
 async function handlePost(req, res) {
   const session = auth.requireSession(req, res);
   if (!session) return undefined;
@@ -136,10 +184,61 @@ async function handlePost(req, res) {
     const patch = validatePatch(body);
     if (patch.errors.length) return res.status(400).json({ error: patch.errors.join(' ') });
 
-    Object.assign(feature, patch.out, { updatedAt: new Date().toISOString() });
+    Object.assign(feature, applyPatch(feature, patch.out), { updatedAt: new Date().toISOString() });
+    await store.writeFeatureIndex(items);
+    return res.status(200).json({ ok: true, item: feature });
+  }
+
+  if (body.action === 'resetClassification') {
+    const items = await store.readFeatureIndex();
+    const feature = items.find(function (f) { return f.id === body.id; });
+    if (!feature) return res.status(404).json({ error: 'No feature with that id.' });
+
+    let restored = null;
+
+    /* Prefer recomputing from the exact extracted item this card came from —
+       already classified once, no LLM call needed. Falls back to the
+       standalone reclassifier only for legacy cards with no such link. */
+    if (feature.sourceSessionId && feature.sourceItemKey) {
+      const originSession = await store.readSession(feature.sourceSessionId);
+      const itemIndex = Number(feature.sourceItemKey.split('#').pop());
+      const raised = originSession && Array.isArray(originSession.raisedItems)
+        ? originSession.raisedItems[itemIndex]
+        : null;
+      if (raised) restored = toRestoredFields(raised);
+    }
+
+    if (!restored) {
+      try {
+        const classified = await moduleClassification.classifyExistingItems([
+          { key: feature.id, item: feature.item, rationale: feature.rationale }
+        ]);
+        const c = classified[0];
+        if (!c) throw new Error('The classifier returned no result.');
+        restored = toRestoredFields(c);
+      } catch (err) {
+        const reason = (err && err.message) || 'unknown error';
+        const status = err && err.code === 'NO_API_KEY' ? 503 : 502;
+        return res.status(status).json({ error: 'Could not reclassify this card: ' + reason + '.' });
+      }
+    }
+
+    Object.assign(feature, restored, {
+      moduleHistory: historyForRestore(feature, restored),
+      isManualModule: false,
+      updatedAt: new Date().toISOString()
+    });
     await store.writeFeatureIndex(items);
     return res.status(200).json({ ok: true, item: feature });
   }
 
   return res.status(400).json({ error: 'Unknown action.' });
 }
+
+/* Attached to the default export (still a callable handler function, which
+   is all Vercel's Node runtime requires) so test/features-api.test.js can
+   exercise the pure validation/patch logic without a store. */
+module.exports.validatePatch = validatePatch;
+module.exports.applyPatch = applyPatch;
+module.exports.toRestoredFields = toRestoredFields;
+module.exports.historyForRestore = historyForRestore;

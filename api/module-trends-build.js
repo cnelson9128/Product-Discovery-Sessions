@@ -1,25 +1,26 @@
 'use strict';
 
-const crypto = require('crypto');
 const auth = require('../lib/auth');
 const store = require('../lib/store');
 const modules = require('../lib/modules');
 const moduleTrends = require('../lib/module-trends');
-const trendCards = require('../lib/trend-cards');
 
 /*
- * (Re)builds the trend synthesis for one module from every currently-ready
- * session tagged to it. Split out from api/module-trends.js because this is
- * the one slow, expensive operation here — an LLM call, not a Redis round
- * trip — and needs its own maxDuration in vercel.json, same reasoning as
- * api/sessions-analyze.js relative to api/sessions.js.
+ * (Re)builds the narrative trend synthesis for one module — overview,
+ * value-created quotes, adoption blockers, GTM messaging — from every
+ * currently-ready session tagged to it. Split out from api/module-trends.js
+ * because this is the one slow, expensive operation here — an LLM call, not
+ * a Redis round trip — and needs its own maxDuration in vercel.json, same
+ * reasoning as api/sessions-analyze.js relative to api/sessions.js.
  *
- * PURELY ADDITIVE: this is a roadmap board now, not disposable AI output.
- * A build only ever APPENDS newly-surfaced features to the shared
- * pds:feature:index — it never mutates, reorders, or removes a feature
- * already there, regardless of which module or which earlier build it came
- * from. Manual edits (bucket, module, owner, complete, requirementsDone) are
- * permanent user data and this endpoint has no business touching them.
+ * This endpoint does NOT create, update, or remove feature cards. Cards are
+ * sourced separately and automatically, per session, per item, classified by
+ * content rather than by which module a session happens to be tagged with —
+ * see lib/raised-items.js (extraction, run at session-analysis time) and
+ * lib/feature-sync.js (turns extracted items into feature-index records).
+ * That split is deliberate: a build scoped to "sessions tagged to module X"
+ * can never see a module-X feature raised during a session tagged to
+ * something else, which is exactly the routing this app needs to get right.
  */
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -66,39 +67,6 @@ module.exports = async function handler(req, res) {
     const generated = await moduleTrends.generateTrend(moduleLabel, sessionInputs);
     const now = new Date().toISOString();
 
-    const candidates = trendCards.toCandidateItems(generated.result);
-    const features = await store.readFeatureIndex();
-    const existingInModule = features.filter(function (f) { return f.module === moduleId; });
-
-    /* Narrow, literal-string safety net — not real dedup. Without this, an
-       unchanged rebuild would append the same wording again every time,
-       since "purely additive" otherwise has no way to know a candidate is
-       the same feature it already surfaced last time. Only skips an EXACT
-       (case-insensitive) match on `item` within the same module; anything
-       even slightly reworded is treated as new and appended, matching this
-       function's "when in doubt, add rather than silently drop" bias. */
-    const existingItemTexts = existingInModule.map(function (f) { return f.item.trim().toLowerCase(); });
-    const added = [];
-    candidates.forEach(function (c) {
-      if (existingItemTexts.indexOf(c.item.trim().toLowerCase()) >= 0) return;
-      const record = {
-        id: crypto.randomUUID(),
-        module: moduleId,
-        item: c.item,
-        rationale: c.rationale,
-        supporting_session_ids: c.supporting_session_ids,
-        bucket: c.bucket,
-        owner: '',
-        complete: false,
-        requirementsDone: false,
-        createdAt: now,
-        updatedAt: now
-      };
-      features.push(record);
-      added.push(record);
-    });
-    await store.writeFeatureIndex(features);
-
     const record = {
       module: moduleId,
       status: 'ready',
@@ -118,16 +86,13 @@ module.exports = async function handler(req, res) {
       }
     };
     await store.writeModuleTrend(moduleId, record);
-    return res.status(200).json({ ok: true, item: record, featuresAdded: added.length });
+    return res.status(200).json({ ok: true, item: record });
   } catch (err) {
     const reason = (err && err.message) || 'unknown error';
     console.error('module trend generation failed:', moduleId, err && err.code, reason);
     const now = new Date().toISOString();
     /* Keep the previous result/builtFromSessionIds on a failed rebuild — a
-       failed refresh must never wipe a previously-successful trend. Note
-       this branch never touches the feature index at all — a failed
-       generation means there's nothing new to append, not a reason to
-       remove anything already there. */
+       failed refresh must never wipe a previously-successful trend. */
     const record = Object.assign({}, previous, {
       module: moduleId,
       status: 'error',
