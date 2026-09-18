@@ -198,7 +198,9 @@ everything else (sign-in, navigation, forms) still works.
    - **Remove it** from the board (with a confirmation — this one has no undo).
 
    All of these save immediately, independent of any rebuild.
-6. **Quote Wall** (top nav) pulls every module's "wow" quotes into one place, each attributed to a
+6. **Quote Wall** (top nav) pulls every module's "wow" quotes into one place, shown as a wall of
+   individual quote cards (grouped by module) rather than a stacked list — the same card treatment
+   used for the "Value created" quotes on each module's own trend page. Each is attributed to a
    client name + date resolved from session data — the same anti-fabrication resolution used
    everywhere else, never text the model wrote itself.
 7. **Go-to-Market** (top nav) is the same synthesis idea one level up: built from every analyzed

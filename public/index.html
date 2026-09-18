@@ -162,6 +162,19 @@ form.sessform{max-width:680px}
 .pullquote{font-size:16px;font-style:italic;color:var(--ink-2);border-left:3px solid var(--accent);
   padding-left:14px;margin:0}
 .not-raised{color:var(--ink-3);font-style:italic;margin:0}
+
+/* "Wow" quotes as a wall of individual cards, not a stacked list — used by
+   the Quote Wall and every module's Value Created section. */
+.quote-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.quote-card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:20px 18px 16px;box-shadow:0 1px 2px rgba(16,20,30,.04)}
+:root[data-theme="dark"] .quote-card{box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.quote-card .quote-mark{position:absolute;top:6px;right:14px;font-size:42px;line-height:1;
+  font-family:Georgia,"Times New Roman",serif;color:var(--accent);opacity:.18;pointer-events:none}
+.quote-card .quote-text{position:relative;font-size:14px;font-style:italic;color:var(--ink-2);
+  line-height:1.5;margin:0 0 12px;padding-right:20px}
+.quote-card .quote-theme{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--accent);font-weight:800;margin-bottom:8px}
 details.transcript summary{cursor:pointer;color:var(--ink-2);font-size:13px;padding:4px 0}
 details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--ink-2);
   max-height:400px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px;margin-top:10px}
@@ -553,6 +566,19 @@ function initials(name){
   const parts=n.split(/\s+/).filter(Boolean);
   if(parts.length===1) return parts[0].slice(0,2).toUpperCase();
   return (parts[0][0]+parts[parts.length-1][0]).toUpperCase();
+}
+/* One "wow" quote as its own card — used by the Quote Wall and every
+   module's Value Created section, so a page of quotes reads as a wall of
+   cards rather than a stacked list. chipsHtml is pre-rendered by the caller
+   (via bootApp's chips() helper) since this function has no access to the
+   session index itself. */
+function quoteCard(text,theme,chipsHtml){
+  return '<div class="quote-card transition-all duration-150 hover:shadow-md hover:-translate-y-0.5">'+
+    '<span class="quote-mark">&ldquo;</span>'+
+    '<p class="quote-text">'+esc(text)+'</p>'+
+    '<div class="quote-theme">'+esc(theme)+'</div>'+
+    (chipsHtml||'')+
+  '</div>';
 }
 function listOrEmpty(arr,render){
   if(!arr || !arr.length) return '<p class="sub" style="margin:0">Nothing raised in this call.</p>';
@@ -1079,10 +1105,9 @@ function bootApp(storageConfigured){
       const valueMomentsBlock=valueMoments===null
         ? '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Value created</h3><p class="hint">This trend was built before Value created existed — click Refresh trend to populate it (this won\'t touch any cards on the board below).</p></div>'
         : '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Value created</h3>'+
-            (valueMoments.length ? valueMoments.map(function(v){
-              return '<div style="margin-bottom:14px"><p class="pullquote">"'+esc(v.quote)+'"</p>'+
-                '<div class="evi">'+esc(v.theme)+'</div>'+chips(v.supporting_session_ids,index)+'</div>';
-            }).join('') : '<p class="sub" style="margin:0">No standout "wow" moments surfaced yet for this module.</p>')+
+            (valueMoments.length ? '<div class="quote-grid">'+valueMoments.map(function(v){
+              return quoteCard(v.quote, v.theme, chips(v.supporting_session_ids,index));
+            }).join('')+'</div>' : '<p class="sub" style="margin:0">No standout "wow" moments surfaced yet for this module.</p>')+
           '</div>';
       content=warn+
         '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Overview</h3><p class="summary-text">'+esc(r.overview_summary)+'</p></div>'+
@@ -1284,10 +1309,9 @@ function bootApp(storageConfigured){
     }
     body.innerHTML=withQuotes.map(function(entry){
       return '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>'+esc(moduleLabel(entry.module))+'</h3>'+
-        entry.quotes.map(function(q){
-          return '<div style="margin-bottom:14px"><p class="pullquote">"'+esc(q.quote)+'"</p>'+
-            '<div class="evi">'+esc(q.theme)+'</div>'+chips(q.supporting_session_ids,index)+'</div>';
-        }).join('')+
+        '<div class="quote-grid">'+entry.quotes.map(function(q){
+          return quoteCard(q.quote, q.theme, chips(q.supporting_session_ids,index));
+        }).join('')+'</div>'+
       '</div>';
     }).join('');
   }
