@@ -1394,8 +1394,7 @@ function bootApp(storageConfigured){
       bau: features.filter(function(f){ return f.bucket==='bau'; }).length,
       total: features.length,
       complete: features.filter(function(f){ return f.complete; }).length,
-      requirementsDone: features.filter(function(f){ return f.requirementsDone; }).length,
-      needsReview: features.filter(function(f){ return f.confidence==='low'; }).length
+      requirementsDone: features.filter(function(f){ return f.requirementsDone; }).length
     };
   }
 
@@ -1510,8 +1509,6 @@ function bootApp(storageConfigured){
         statTile('Sessions held', totalSessions, 'of '+totalTarget+' goal', '--accent')+
         statTile('Features logged', overall.total, 'across '+MODULES.length+' session types', '--bucket-launch-solid')+
         statTile('Complete', overall.complete, overall.total?Math.round(overall.complete/overall.total*100)+'% of all features':'—', '--bucket-bau-solid')+
-        statTile('Requirements done', overall.requirementsDone, overall.total?Math.round(overall.requirementsDone/overall.total*100)+'% of all features':'—', '--bucket-phase2-solid')+
-        statTile('Needs review', overall.needsReview, 'low-confidence module classification', '--warn-ink')+
       '</div>'+
       '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300">'+
         '<h3>Overall progress</h3>'+

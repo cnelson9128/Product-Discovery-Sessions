@@ -219,8 +219,8 @@ everything else (sign-in, navigation, forms) still works.
    highlight per module that has enough signal to support one — each grounded across more than one
    customer or module, so a single session's one-off comment shows up in that module's own trend
    rather than here.
-8. **Reports** (top nav) is the monthly board pack, led with four hero stat tiles (sessions held,
-   features logged, complete, requirements done), a progress ring for sessions held toward the
+8. **Reports** (top nav) is the monthly board pack, led with three hero stat tiles (sessions held,
+   features logged, complete), a progress ring for sessions held toward the
    10-per-session-type goal, and a donut chart for the overall Launch/Phase 2/Future Considerations
    mix — all backed by the same detailed, precise stacked-bar breakdown per module underneath (the
    donut and ring are an at-a-glance summary layered on top of that data, not a replacement for it).
