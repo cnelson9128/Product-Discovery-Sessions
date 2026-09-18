@@ -188,6 +188,10 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
   display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .modrow .modname{font-weight:600}
 .modrow .modcount{color:var(--ink-3);font-size:13px}
+.modrow .modfeatures{color:var(--ink-3);font-size:12px;margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.modbuckets{display:inline-flex;gap:4px}
+.modbucket-pill{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;
+  padding:0 5px;border-radius:999px;color:#fff;font-size:10px;font-weight:800}
 .modrow .modright{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .chip{display:inline-block;background:var(--bg);border:1px solid var(--line);color:var(--ink-2);
   font-size:12px;padding:3px 10px;border-radius:999px;text-decoration:none;margin:2px 4px 2px 0}
@@ -991,10 +995,11 @@ function bootApp(storageConfigured){
   async function loadModules(){
     const wrap=document.getElementById('moduleswrap');
     wrap.innerHTML='<p class="sub">Loading…</p>';
-    const [sessionsRes,trendsRes]=await Promise.all([api('/api/sessions'),api('/api/module-trends')]);
+    const [sessionsRes,trendsRes,featuresRes]=await Promise.all([api('/api/sessions'),api('/api/module-trends'),api('/api/features')]);
     if(!sessionsRes.ok){ wrap.innerHTML='<div class="err-box">'+esc(sessionsRes.body.error||'Could not load sessions.')+'</div>'; return; }
     const index=sessionsRes.body.items||[];
     const trends=(trendsRes.ok && trendsRes.body.trends) || {};
+    const features=(featuresRes.ok && featuresRes.body.items) || [];
 
     wrap.innerHTML=MODULES.map(function(m){
       const all=index.filter(function(s){ return s.module===m.id; });
@@ -1004,9 +1009,21 @@ function bootApp(storageConfigured){
       const st=staleness(trend,readyIds);
       const canBuild=ready.length>0;
       const btnLabel=trend&&trend.builtAt ? 'Refresh trend' : 'Build trend';
+      /* Feature counts are independent of whether a trend has ever been
+         built for this module — cards are classified and synced per session,
+         not per build (see lib/feature-sync.js) — so this reflects the board
+         right now, including cards moved in from other modules. */
+      const g=groupFeatures(features.filter(function(f){ return f.module===m.id; }));
+      const bucketPills=BUCKETS.map(function(b){
+        return g[b.id] ? '<span class="modbucket-pill" style="background:var('+BUCKET_SOLID_VAR[b.id]+')" title="'+esc(b.label)+': '+g[b.id]+'">'+g[b.id]+'</span>' : '';
+      }).join('');
+      const featuresLine=g.total
+        ? g.total+' feature'+(g.total===1?'':'s')+' &middot; '+g.complete+' complete'+(bucketPills?'<span class="modbuckets">'+bucketPills+'</span>':'')
+        : 'No features yet';
       return '<div class="modrow shadow-sm hover:shadow-md transition-shadow duration-300" data-module="'+esc(m.id)+'">'+
         '<div><div class="modname">'+esc(m.label)+'</div>'+
-          '<div class="modcount">'+ready.length+' analyzed / '+all.length+' total session'+(all.length===1?'':'s')+'</div></div>'+
+          '<div class="modcount">'+ready.length+' analyzed / '+all.length+' total session'+(all.length===1?'':'s')+'</div>'+
+          '<div class="modfeatures">'+featuresLine+'</div></div>'+
         '<div class="modright">'+
           '<span class="badge '+st.cls+'">'+esc(st.label)+'</span>'+
           '<button type="button" class="btn small buildbtn transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" data-module="'+esc(m.id)+'"'+(canBuild?'':' disabled title="Analyze at least one session for this module first"')+'>'+btnLabel+'</button>'+
