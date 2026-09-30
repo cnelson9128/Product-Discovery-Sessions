@@ -14,12 +14,25 @@ one overall positioning statement, value pillars, proof points, objection handli
 per-module highlight reel, built only from what recurs across more than one customer or module
 rather than any single session's one-off comment.
 
-This is also the team's **roadmap prioritization board**: every feature a trend surfaces becomes a
-persistent, independently-editable card — given an owner, tracked through Launch / Phase 2 /
-Future Considerations, marked requirements-done and/or complete, and movable to a different module
-entirely — that survives every future trend rebuild rather than being regenerated from scratch. A
-**Quote Wall** pulls every module's "wow" quotes into one place, and a **Reports** dashboard gives
-the monthly board pack a real breakdown of features by status per module.
+This is also the team's **roadmap prioritization board**: every feature/problem/request/opportunity
+raised in any session — on either track (see below) — is automatically classified by its content
+into the single product module it's actually about, regardless of which module or batch the session
+itself was tagged with, and becomes a persistent, independently-editable card — given an owner,
+tracked through Launch / Phase 2 / Future Considerations, marked requirements-done and/or complete,
+and movable to a different module entirely (a protected manual override, reversible any time) — that
+survives every future re-analysis rather than being regenerated from scratch. A **Quote Wall** pulls
+every module's "wow" quotes into one place, and a **Reports** dashboard gives the monthly board pack
+a real breakdown of features by status per module.
+
+**Two parallel tracks.** Alongside product-discovery (various clients, one of 11 modules per
+session), a second **Migration Readiness** track runs a fixed roster of 16 clients (2 locked per
+batch) across 8 fixed migration batches, each defined by a specific scope (e.g. "perm workflow only,
+Gmail and Microsoft365 integrations only"). Each migration-readiness session gets the same
+11-question analysis as a discovery session, plus a dedicated **migration risk profile** (readiness
+verdict, themed risk areas with severity, blockers, target-date feasibility) — feeding a per-batch
+**readiness indicator** (grey/green/amber/red) suitable for exec reporting. Feature/problem content
+from these sessions flows into the same roadmap board as discovery sessions; Quote Wall and
+Go-to-Market messaging stay scoped to product-discovery only.
 
 Distinct from the sibling `competitor-analysis` repo's sales-facing demo-prep tool — this is PM/
 research interviews about product needs, not sales calls. A static shell in `public/`, plus
@@ -176,7 +189,21 @@ everything else (sign-in, navigation, forms) still works.
    substantively answered. **Regenerate** re-runs the analysis from the same transcript.
 4. The dashboard lists every session with its module, a status badge (Draft/Ready/Error), and text
    + module filters.
-5. **Modules** (top nav) lists all 11 session types with their analyzed/total session counts and
+5. **Migration Readiness** (top nav) is the second track: 8 fixed batches, each with up to 2 locked
+   clients and an editable target migration date, set on that batch's own page (inline text/date
+   fields, saved on blur). The overview lists every batch with its session progress (`n/2 logged`)
+   and a **readiness badge** — grey "Not yet assessed"/"Partial assessment" until both of a batch's
+   sessions are analyzed, then green/amber/red from the **worst** of the two verdicts (never an
+   average — a batch is only as ready as its riskiest customer signal). **+ New session** on a
+   batch's page is scoped to it: the client dropdown only offers that batch's locked names, no module
+   field (batch replaces that role). Each session gets the same 11-question analysis as a discovery
+   session, plus a **Migration risk profile** — an overall readiness verdict, themed risk areas with
+   severity, concrete blockers, and whether the customer's own signal supports the batch's target
+   date — all grounded only in what was said, same as everywhere else in this app. Any feature,
+   problem, or request raised in these sessions is classified and lands on the same roadmap board as
+   product-discovery sessions (see below); Quote Wall and Go-to-Market messaging stay
+   product-discovery-only.
+6. **Modules** (top nav) lists all 11 session types with their analyzed/total session counts and
    trend status. Each module's page always shows its **feature prioritization** board — one card per
    feature, sorted into **Launch** / **Phase 2** / **Future Considerations** — independent of whether
    a trend has ever been built for it. That's because cards aren't sourced from a per-module build
@@ -208,18 +235,18 @@ everything else (sign-in, navigation, forms) still works.
    reaction is enough to earn a spot here), adoption blockers, and draft GTM messaging, from every
    analyzed session tagged to that module. It's unrelated to feature cards and never creates, moves,
    or removes one — a failed or repeated build can't corrupt the board either way.
-6. **Quote Wall** (top nav) pulls every module's "wow" quotes into one place, shown as a wall of
+7. **Quote Wall** (top nav) pulls every module's "wow" quotes into one place, shown as a wall of
    individual quote cards (grouped by module) rather than a stacked list — the same card treatment
    used for the "Value created" quotes on each module's own trend page. Each is attributed to a
    client name + date resolved from session data — the same anti-fabrication resolution used
    everywhere else, never text the model wrote itself.
-7. **Go-to-Market** (top nav) is the same synthesis idea one level up: built from every analyzed
+8. **Go-to-Market** (top nav) is the same synthesis idea one level up: built from every analyzed
    session across *all* modules at once, not scoped to one. **Build**/**Refresh** synthesizes an
    overall positioning statement, value pillars, proof points, objection handling, and a one-line
    highlight per module that has enough signal to support one — each grounded across more than one
    customer or module, so a single session's one-off comment shows up in that module's own trend
    rather than here.
-8. **Reports** (top nav) is the monthly board pack, led with three hero stat tiles (sessions held,
+9. **Reports** (top nav) is the monthly board pack, led with three hero stat tiles (sessions held,
    features logged, complete), a progress ring for sessions held toward the
    10-per-session-type goal, and a donut chart for the overall Launch/Phase 2/Future Considerations
    mix — all backed by the same detailed, precise stacked-bar breakdown per module underneath (the
@@ -265,21 +292,28 @@ patterns suggest otherwise.
 ```
 public/
   index.html     shell: sign-in screen + dashboard + new-session form + session detail +
-                  modules overview + module trend detail + quote wall + go-to-market view + reports.
+                  migration-readiness overview/batch/form + modules overview + module trend detail +
+                  quote wall + go-to-market view + reports.
   robots.txt
 api/             serverless functions (zero-config, picked up by Vercel)
   login.js                password -> role-less signed HttpOnly cookie
   logout.js                clears it
   session.js               "am I signed in?", called on page load
   clients.js              managed client list (GET) + add (POST) — session required
-  sessions.js             list/detail (GET) + create/update/delete (POST) — session required
-  sessions-analyze.js     generates/regenerates a session's 11-question analysis AND its raised-items
-                          extraction (in parallel) — longer maxDuration
+  sessions.js             list/detail (GET) + create/update/delete (POST) — session required. One
+                          session model, two tracks (`track`: 'discovery' | 'migration-readiness') —
+                          a discovery session needs a managed client + module; a migration-readiness
+                          session needs a batch + one of that batch's two locked roster clients
+  sessions-analyze.js     generates/regenerates a session's 11-question analysis, its raised-items
+                          extraction, AND — migration-readiness sessions only — its migration risk
+                          profile (all in parallel) — longer maxDuration
   module-trends.js        module trend metadata/detail (GET) — session required
   module-trends-build.js  (re)builds a module's narrative trend (overview/quotes/blockers/GTM) —
                           longer maxDuration; does not touch feature cards at all
   features.js             CRUD for roadmap feature cards: list/filter (GET), update/delete/
                           resetClassification (POST) — session required
+  migration-batches.js    the 8 batches merged with their editable roster (GET), update a batch's
+                          locked clients/target date (POST) — session required
   quote-wall.js           every module's "wow" quotes in one response (GET) — session required
   gtm-messaging.js        overall go-to-market record (GET) — session required
   gtm-messaging-build.js  (re)builds it from every analyzed session across all modules — longer maxDuration
@@ -292,12 +326,19 @@ api/             serverless functions (zero-config, picked up by Vercel)
 lib/             never served over HTTP
   auth.js              HMAC session tokens, constant-time password check, single shared password
   store.js             Redis REST access — sessions, clients, roadmap features, module trends, the
-                       gtm record, login throttling
+                       migration-batch roster, the gtm record, login throttling
   modules.js            the 11 fixed session types (id + label) and validation
+  batches.js             the 8 fixed migration batches (id + label + description) and validation —
+                          same "permanent program structure, hardcoded" reasoning as modules.js
   analysis.js           builds the per-session 11-question analysis prompt
   raised-items.js        builds the per-session extraction prompt: every feature/problem/request/
                           opportunity raised, classified by content into the module it's actually
-                          about — independent of the session's own tagged module
+                          about — independent of the session's own tagged module or batch
+  migration-risk.js       builds the per-session migration-readiness risk-profile prompt: overall
+                          readiness verdict, themed risk areas with severity, blockers, target-date
+                          feasibility — framed around the batch's own defined scope
+  migration-readiness.js  rollupBatchReadiness(): pure, worst-of-two-verdicts readiness rollup for a
+                          batch — duplicated verbatim in public/index.html (no bundler)
   module-classification.js  single source of truth for what each module means (used by both
                           raised-items.js and the standalone reclassifier below) and the shared
                           classification JSON-schema fragment
@@ -310,7 +351,9 @@ lib/             never served over HTTP
   anthropic-client.js    shared streaming call + error handling, used by every prompt file above
 vercel.json      static root, security headers, every long-running build endpoint's maxDuration
 test/            node --test suite (`npm test`) — feature classification/sync, the features API's
-                 pure validation/patch logic, and the reclassify endpoint's idempotency
+                 pure validation/patch logic, the reclassify endpoint's idempotency, batches/migration
+                 risk schema shape, sessions validation across both tracks, the migration-batches
+                 roster patch, and the readiness rollup
 package.json     pins Node 22. One dependency (mammoth). No build script.
 ```
 
@@ -325,9 +368,10 @@ IP — 10 in 15 minutes — when Redis is linked.
 
 | Key | Holds |
 |---|---|
-| `pds:session:index` | Lightweight metadata (incl. `module`) for every session — no transcript, no analysis. What the dashboard and module-count views read. |
-| `pds:session:<id>` | One session's full record: metadata, transcript, the 11-question `analysis`, and the separate `raisedItems` extraction (every feature/problem/request/opportunity found in the transcript, each pre-classified into its module). Fetched only when that session's detail view is opened, when building a module's narrative trend, or when syncing feature cards. |
-| `pds:clients` | A JSON array of managed client names. |
+| `pds:session:index` | Lightweight metadata for every session on both tracks — `track`, and either `module` (discovery) or `batch` (migration-readiness), plus the denormalized `migrationReadinessVerdict` once a migration session's risk profile exists. No transcript, no analysis. What the dashboard, module-count, and batch-overview views read. |
+| `pds:session:<id>` | One session's full record: metadata, transcript, the 11-question `analysis` (both tracks), the separate `raisedItems` extraction (every feature/problem/request/opportunity found in the transcript, each pre-classified into its module — both tracks), and — migration-readiness sessions only — `migrationRisk` (readiness verdict, risk areas, blockers, target-date feasibility). Fetched only when that session's detail view is opened, when building a module's narrative trend, or when syncing feature cards. |
+| `pds:clients` | A JSON array of managed client names — the product-discovery track's roster. |
+| `pds:migration:roster` | The migration-readiness track's roster: `{ [batchId]: { clients: [name1, name2], targetDate } }`. Editable per batch on that batch's page; the 8 batch ids/labels/descriptions themselves are fixed in `lib/batches.js`, same as `lib/modules.js`. |
 | `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, secondaryModules, confidence, classificationReason, item, rationale, evidenceQuote, supporting_session_ids, sourceSessionId, sourceItemKey}` (model-authored/classified, only `module` user-editable — see below) plus `{bucket, owner, complete, requirementsDone}` (fully user-editable via `api/features.js`), `isManualModule`/`moduleHistory` (set when a human moves `module` by hand — see "Manual overrides" below), and `createdAt`/`updatedAt`. `sourceSessionId`+`sourceItemKey` (`` `${sessionId}#${itemIndex}` ``) link a card back to the exact extracted item it came from, so re-analyzing that session updates the same card rather than duplicating it. |
 | `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, and the synthesized result — `overview_summary`, `value_moments` (the "wow" quotes, each citing exactly one session id), `adoption_blockers`, `gtm_messaging`. No longer holds feature cards or counts — those live in `pds:feature:index` now and are computed live wherever they're needed. |
 | `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |

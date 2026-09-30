@@ -331,6 +331,7 @@ try{var _t=localStorage.getItem('pds-theme');
     <div class="brand">Product Discovery Sessions<span>Firefish, internal</span></div>
     <div class="hactions">
       <a href="#sessions" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-sessions">Sessions</a>
+      <a href="#migration" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-migration">Migration Readiness</a>
       <a href="#modules" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-modules">Modules</a>
       <a href="#quotes" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-quotes">Quote Wall</a>
       <a href="#gtm" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-gtm">Go-to-Market</a>
@@ -409,8 +410,58 @@ try{var _t=localStorage.getItem('pds-theme');
   </section>
 
   <section id="view-detail" hidden>
-    <a href="#sessions" class="backlink">&larr; All sessions</a>
+    <a href="#sessions" class="backlink" id="detailbacklink">&larr; All sessions</a>
     <div id="detailbody"></div>
+  </section>
+
+  <section id="view-migration" hidden>
+    <h2 class="ph">Migration readiness</h2>
+    <p class="sub">Two locked customers per batch, run through a migration-readiness interview, to
+      establish whether that batch is genuinely ready to move — separate from the various-client
+      product discovery track above.</p>
+    <div id="migrationwrap" class="modgrid"></div>
+  </section>
+
+  <section id="view-migration-detail" hidden>
+    <a href="#migration" class="backlink">&larr; All batches</a>
+    <div id="migrationdetailbody"></div>
+  </section>
+
+  <section id="view-migration-form" hidden>
+    <a href="#migration" class="backlink" id="migrationformbacklink">&larr; Back to batch</a>
+    <h2 class="ph">New migration-readiness session</h2>
+    <form class="sessform" id="migrationform">
+      <div class="row">
+        <div class="field">
+          <label for="mf-customerName">Client</label>
+          <select id="mf-customerName" name="customerName" required></select>
+        </div>
+        <div class="field">
+          <label for="mf-interviewer">Interviewer</label>
+          <input type="text" id="mf-interviewer" name="interviewer" maxlength="200" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="mf-sessionDate">Session date</label>
+        <input type="date" id="mf-sessionDate" name="sessionDate" required>
+      </div>
+      <div class="field">
+        <label for="mf-participants">Participants (optional)</label>
+        <input type="text" id="mf-participants" name="participants" maxlength="500"
+          placeholder="e.g. Jane Doe (Head of Talent), Sam (Recruiter) — Firefish: Alex">
+      </div>
+      <div class="field">
+        <label for="mf-transcriptfile">Transcript</label>
+        <input type="file" id="mf-transcriptfile" accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        <textarea id="mf-transcript" name="transcript" placeholder="Paste the transcript, or choose a .txt or .docx file above"></textarea>
+        <span class="hint" id="mf-translen"></span>
+      </div>
+      <div class="err-box" id="migrationformerr" hidden></div>
+      <div class="formfoot">
+        <button type="submit" class="btn transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" id="migrationformsubmit">Create and analyze</button>
+        <button type="button" class="btn ghost transition-all duration-150 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0" id="migrationformcancel">Cancel</button>
+      </div>
+    </form>
   </section>
 
   <section id="view-modules" hidden>
@@ -554,6 +605,36 @@ const BUCKETS=[
   {id:'bau',label:'Future Considerations'}
 ];
 
+/* Must match lib/batches.js's BATCHES exactly. */
+const BATCHES=[
+  {id:'batch-1',label:'Batch 1',description:'Perm workflow only, Gmail and Microsoft365 integrations only'},
+  {id:'batch-2',label:'Batch 2',description:'Perm, Contract + Temp workflows, no integrations'},
+  {id:'batch-3',label:'Batch 3',description:'Core job board use: Indeed, Reed, Total Jobs, CV Library + standard jobs page'},
+  {id:'batch-4',label:'Batch 4',description:'Candidate portal + blended jobs page (custom CSS header and footer)'},
+  {id:'batch-5',label:'Batch 5',description:'Employer portal'},
+  {id:'batch-6',label:'Batch 6',description:'Niche job boards'},
+  {id:'batch-7',label:'Batch 7',description:'Full website offering + full public API, integrations such as BD, marketing, analytics, VOIP'},
+  {id:'batch-8',label:'Batch 8',description:'Custom APIs, complex setups in Firefish'}
+];
+function batchLabel(id){ const b=BATCHES.find(function(x){return x.id===id}); return b?b.label:id; }
+function batchDescription(id){ const b=BATCHES.find(function(x){return x.id===id}); return b?b.description:''; }
+
+/* Must match lib/migration-readiness.js's rollupBatchReadiness exactly. */
+const READINESS_RANK={ready:0,minor_concerns:1,major_concerns:2,not_ready:3};
+const READINESS_LABELS={ready:'Ready',minor_concerns:'Minor concerns',major_concerns:'Major concerns',not_ready:'Not ready'};
+const READINESS_LEVELS={ready:'green',minor_concerns:'amber',major_concerns:'red',not_ready:'red'};
+function rollupBatchReadiness(sessionEntries,expectedCount){
+  const expected=(typeof expectedCount==='number' && expectedCount>0)?expectedCount:2;
+  const assessed=(sessionEntries||[]).filter(function(e){ return e.status==='ready' && !!e.migrationReadinessVerdict; });
+  if(!assessed.length) return {level:'grey',label:'Not yet assessed'};
+  if(assessed.length<expected) return {level:'grey',label:'Partial assessment ('+assessed.length+'/'+expected+')'};
+  let worst='ready';
+  assessed.forEach(function(e){
+    if((READINESS_RANK[e.migrationReadinessVerdict]||0)>(READINESS_RANK[worst]||0)) worst=e.migrationReadinessVerdict;
+  });
+  return {level:READINESS_LEVELS[worst]||'grey',label:READINESS_LABELS[worst]||'Unknown'};
+}
+
 function esc(s){
   return String(s==null?'':s).replace(/[&<>"']/g,function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
@@ -643,6 +724,9 @@ function bootApp(storageConfigured){
     list:document.getElementById('view-list'),
     form:document.getElementById('view-form'),
     detail:document.getElementById('view-detail'),
+    migration:document.getElementById('view-migration'),
+    migrationdetail:document.getElementById('view-migration-detail'),
+    migrationform:document.getElementById('view-migration-form'),
     modules:document.getElementById('view-modules'),
     moduledetail:document.getElementById('view-module-detail'),
     quotewall:document.getElementById('view-quotewall'),
@@ -652,6 +736,7 @@ function bootApp(storageConfigured){
   function showView(name){
     Object.keys(views).forEach(function(k){ views[k].hidden = k!==name; });
     document.getElementById('nav-sessions').classList.toggle('active', name==='list'||name==='form'||name==='detail');
+    document.getElementById('nav-migration').classList.toggle('active', name==='migration'||name==='migrationdetail'||name==='migrationform');
     document.getElementById('nav-modules').classList.toggle('active', name==='modules'||name==='moduledetail');
     document.getElementById('nav-quotes').classList.toggle('active', name==='quotewall');
     document.getElementById('nav-gtm').classList.toggle('active', name==='gtm');
@@ -659,7 +744,7 @@ function bootApp(storageConfigured){
   }
 
   async function go(){
-    const hash=location.hash.slice(1); // '', 'sessions', 'sessions/new', 'sessions/<id>', 'modules', 'modules/<slug>', 'quotes', 'gtm', 'report'
+    const hash=location.hash.slice(1); // '', 'sessions', 'sessions/new', 'sessions/<id>', 'migration', 'migration/<batchId>', 'migration/<batchId>/new', 'modules', 'modules/<slug>', 'quotes', 'gtm', 'report'
     const parts=hash.split('/').filter(Boolean);
     if(parts[0]==='report'){
       showView('report');
@@ -673,6 +758,10 @@ function bootApp(storageConfigured){
     }else if(parts[0]==='modules'){
       if(parts[1]){ showView('moduledetail'); await openModuleDetail(parts[1]); }
       else{ showView('modules'); await loadModules(); }
+    }else if(parts[0]==='migration'){
+      if(parts[2]==='new'){ showView('migrationform'); await openMigrationForm(parts[1]); }
+      else if(parts[1]){ showView('migrationdetail'); await openMigrationBatch(parts[1]); }
+      else{ showView('migration'); await loadMigrationOverview(); }
     }else if(parts[1]==='new'){
       showView('form');
       await resetForm();
@@ -694,7 +783,9 @@ function bootApp(storageConfigured){
       document.getElementById('tablewrap').innerHTML='<div class="err-box">'+esc(res.body.error||'Could not load sessions.')+'</div>';
       return;
     }
-    INDEX=res.body.items||[];
+    /* Migration-readiness sessions live on their own tab (#migration) — the
+       Sessions tab stays a product-discovery-only view, exactly as before. */
+    INDEX=(res.body.items||[]).filter(function(s){ return (s.track||'discovery')==='discovery'; });
     renderTable();
   }
   function renderTable(){
@@ -737,6 +828,37 @@ function bootApp(storageConfigured){
     location.hash='#sessions/new';
   });
 
+  /* ---- shared transcript upload wiring (discovery + migration forms) ---- */
+  const TRANSCRIPT_MAX=150000;
+  function wireTranscriptUpload(fileInput,textarea,lenEl,errEl){
+    function updateLen(){
+      const n=textarea.value.length;
+      lenEl.textContent=n.toLocaleString()+' / '+TRANSCRIPT_MAX.toLocaleString()+' characters';
+      lenEl.className='hint'+(n>TRANSCRIPT_MAX?' over':'');
+    }
+    textarea.addEventListener('input',updateLen);
+    fileInput.addEventListener('change',async function(){
+      const file=fileInput.files[0];
+      if(!file) return;
+      errEl.hidden=true;
+      try{
+        if(/\.docx$/i.test(file.name) || file.type.indexOf('wordprocessingml')>=0){
+          const buf=await file.arrayBuffer();
+          const b64=btoa(new Uint8Array(buf).reduce(function(s,b){return s+String.fromCharCode(b)},''));
+          const res=await api('/api/parse-transcript',{method:'POST',body:JSON.stringify({fileBase64:b64})});
+          if(!res.ok){ errEl.textContent=res.body.error||'Could not read that file.'; errEl.hidden=false; return; }
+          textarea.value=res.body.text;
+        }else{
+          textarea.value=await file.text();
+        }
+        updateLen();
+      }catch(err){
+        errEl.textContent='Could not read that file.'; errEl.hidden=false;
+      }
+    });
+    return updateLen;
+  }
+
   /* ---- new-session form ---- */
   const sessForm=document.getElementById('sessform'),
         formErr=document.getElementById('formerr'),
@@ -747,8 +869,8 @@ function bootApp(storageConfigured){
         clientSel=document.getElementById('f-customerName'),
         addClientRow=document.getElementById('addclientrow'),
         newClientName=document.getElementById('newclientname');
-  const TRANSCRIPT_MAX=150000;
   const ADD_CLIENT_VALUE='__add_new__';
+  const updateLen=wireTranscriptUpload(transcriptFile,transcriptTa,translen,formErr);
 
   async function loadClientsInto(selectedValue){
     const res=await api('/api/clients');
@@ -784,33 +906,6 @@ function bootApp(storageConfigured){
     updateLen();
     await loadClientsInto('');
   }
-  function updateLen(){
-    const n=transcriptTa.value.length;
-    translen.textContent=n.toLocaleString()+' / '+TRANSCRIPT_MAX.toLocaleString()+' characters';
-    translen.className='hint'+(n>TRANSCRIPT_MAX?' over':'');
-  }
-  transcriptTa.addEventListener('input',updateLen);
-
-  transcriptFile.addEventListener('change',async function(){
-    const file=transcriptFile.files[0];
-    if(!file) return;
-    formErr.hidden=true;
-    try{
-      if(/\.docx$/i.test(file.name) || file.type.indexOf('wordprocessingml')>=0){
-        const buf=await file.arrayBuffer();
-        const b64=btoa(new Uint8Array(buf).reduce(function(s,b){return s+String.fromCharCode(b)},''));
-        const res=await api('/api/parse-transcript',{method:'POST',body:JSON.stringify({fileBase64:b64})});
-        if(!res.ok){ formErr.textContent=res.body.error||'Could not read that file.'; formErr.hidden=false; return; }
-        transcriptTa.value=res.body.text;
-      }else{
-        transcriptTa.value=await file.text();
-      }
-      updateLen();
-    }catch(err){
-      formErr.textContent='Could not read that file.'; formErr.hidden=false;
-    }
-  });
-
   document.getElementById('formcancel').addEventListener('click',function(){ location.hash='#sessions'; });
 
   sessForm.addEventListener('submit',async function(e){
@@ -865,14 +960,59 @@ function bootApp(storageConfigured){
       mixed:'Mixed vs v1',not_discussed:'Not compared to v1'}[v] || v;
   }
 
+  function riskVerdictLabel(v){
+    return {ready:'Ready',minor_concerns:'Minor concerns',major_concerns:'Major concerns',not_ready:'Not ready',
+      on_track:'On track',at_risk:'At risk',not_discussed:'Not discussed'}[v] || v;
+  }
+  function riskVerdictBadgeClass(v){
+    return {ready:'ready',on_track:'ready',minor_concerns:'stale',major_concerns:'error',not_ready:'error',at_risk:'stale',not_discussed:'draft'}[v] || 'draft';
+  }
+  const RISK_THEME_LABELS={technical_integration:'Technical / integration',data_migration:'Data migration',
+    training_change_management:'Training / change management',timeline:'Timeline',commercial_contractual:'Commercial / contractual',other:'Other'};
+
   function renderDetail(item){
     const body=document.getElementById('detailbody');
     const a=item.analysis;
+    const isMigration=item.track==='migration-readiness';
+
+    const backLink=document.getElementById('detailbacklink');
+    if(isMigration){ backLink.href='#migration/'+encodeURIComponent(item.batch); backLink.textContent='← Back to batch'; }
+    else{ backLink.href='#sessions'; backLink.textContent='← All sessions'; }
 
     let errBlock='';
     if(item.status==='error' && item.lastError){
       errBlock='<div class="errpanel">Analysis failed: '+esc(item.lastError)+
         (item.lastErrorAt?'<div class="code">'+esc(fmtDateTime(item.lastErrorAt))+'</div>':'')+'</div>';
+    }
+
+    let riskBlock='';
+    if(isMigration){
+      const r=item.migrationRisk;
+      if(r){
+        riskBlock='<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Migration risk profile</h3>'+
+          '<p><span class="badge '+riskVerdictBadgeClass(r.overall_readiness.verdict)+'">'+esc(riskVerdictLabel(r.overall_readiness.verdict))+'</span></p>'+
+          '<p class="summary-text">'+esc(r.overall_readiness.explanation)+'</p>'+
+          '<p class="hint" style="margin:16px 0 6px">Risk areas</p>'+
+          listOrEmpty(r.risk_areas,function(ra){
+            return '<li>'+esc(RISK_THEME_LABELS[ra.theme]||ra.theme)+
+              ' <span class="badge '+(ra.severity==='high'?'error':ra.severity==='medium'?'stale':'draft')+'">'+esc(ra.severity)+'</span>'+
+              '<div class="evi">'+esc(ra.description)+' — '+esc(ra.evidence)+'</div></li>';
+          })+
+          '<p class="hint" style="margin:16px 0 6px">Blockers</p>'+
+          listOrEmpty(r.blockers,function(b){
+            return '<li>'+esc(b.blocker)+'<div class="evi">'+esc(b.evidence)+'</div></li>';
+          })+
+          '<p class="hint" style="margin:16px 0 6px">Target-date feasibility</p>'+
+          (r.target_date_feasibility.mentioned
+            ? '<p><span class="badge '+riskVerdictBadgeClass(r.target_date_feasibility.verdict)+'">'+esc(riskVerdictLabel(r.target_date_feasibility.verdict))+'</span></p><p class="summary-text">'+esc(r.target_date_feasibility.explanation)+'</p>'
+            : '<p class="not-raised">Not discussed in this call.</p>')+
+        '</div>';
+      }else if(item.migrationRiskError){
+        riskBlock='<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Migration risk profile</h3>'+
+          '<div class="errpanel">Could not generate the risk profile: '+esc(item.migrationRiskError)+'. Try Regenerate.</div></div>';
+      }else if(item.status==='draft'){
+        riskBlock='<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Migration risk profile</h3><p class="sub">Generating…</p></div>';
+      }
     }
 
     let analysisBlock;
@@ -951,7 +1091,7 @@ function bootApp(storageConfigured){
       '<div class="dhead">'+
         '<div class="dmeta">'+
           '<h2>'+esc(item.customerName)+'</h2>'+
-          '<div class="subline">'+esc(moduleLabel(item.module))+' &middot; Interviewer: '+esc(item.interviewer)+
+          '<div class="subline">'+esc(isMigration?batchLabel(item.batch):moduleLabel(item.module))+' &middot; Interviewer: '+esc(item.interviewer)+
             (item.participants?' &middot; Participants: '+esc(item.participants):'')+
             ' &middot; '+esc(fmtDate(item.sessionDate))+
             ' &middot; <span class="badge '+esc(item.status)+'">'+esc(badgeLabel(item.status))+'</span></div>'+
@@ -962,6 +1102,7 @@ function bootApp(storageConfigured){
         '</div>'+
       '</div>'+
       errBlock+
+      riskBlock+
       analysisBlock+
       '<details class="transcript"><summary>Raw transcript</summary><pre>'+esc(item.transcript)+'</pre></details>';
 
@@ -975,9 +1116,172 @@ function bootApp(storageConfigured){
     document.getElementById('delbtn').addEventListener('click',async function(){
       if(!confirm('Delete this session and its transcript? This cannot be undone.')) return;
       await api('/api/sessions',{method:'POST',body:JSON.stringify({action:'delete',id:item.id})});
-      location.hash='#sessions';
+      location.hash=isMigration?'#migration/'+encodeURIComponent(item.batch):'#sessions';
     });
   }
+
+  /* ---- migration readiness: batch overview ---- */
+  function readinessBadgeClass(level){
+    return {green:'ready',amber:'stale',red:'error',grey:'draft'}[level]||'draft';
+  }
+
+  async function loadMigrationOverview(){
+    const wrap=document.getElementById('migrationwrap');
+    wrap.innerHTML='<p class="sub">Loading…</p>';
+    const [sessionsRes,rosterRes]=await Promise.all([api('/api/sessions'),api('/api/migration-batches')]);
+    if(!sessionsRes.ok){ wrap.innerHTML='<div class="err-box">'+esc(sessionsRes.body.error||'Could not load sessions.')+'</div>'; return; }
+    const index=sessionsRes.body.items||[];
+    const rosterItems=(rosterRes.ok && rosterRes.body.items) || BATCHES.map(function(b){ return Object.assign({clients:[],targetDate:null},b); });
+
+    wrap.innerHTML=rosterItems.map(function(b){
+      const sessions=index.filter(function(s){ return s.track==='migration-readiness' && s.batch===b.id; });
+      const expected=Math.max(b.clients.filter(Boolean).length,1);
+      const readiness=rollupBatchReadiness(sessions,expected);
+      return '<div class="modrow shadow-sm hover:shadow-md transition-shadow duration-300" data-batch="'+esc(b.id)+'">'+
+        '<div><div class="modname">'+esc(b.label)+'</div>'+
+          '<div class="modcount">'+esc(b.description)+'</div>'+
+          '<div class="modfeatures">'+sessions.length+'/'+expected+' session'+(expected===1?'':'s')+' logged'+
+            (b.targetDate?' &middot; Target: '+esc(fmtDate(b.targetDate)):' &middot; No target date set')+'</div></div>'+
+        '<div class="modright">'+
+          '<span class="badge '+readinessBadgeClass(readiness.level)+'">'+esc(readiness.label)+'</span>'+
+          '<a href="#migration/'+esc(b.id)+'" class="btn ghost small transition-all duration-150 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0">View</a>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  /* ---- migration readiness: one batch's detail ---- */
+  async function openMigrationBatch(batchId){
+    const body=document.getElementById('migrationdetailbody');
+    body.innerHTML='<p class="sub">Loading…</p>';
+    const [sessionsRes,rosterRes]=await Promise.all([api('/api/sessions'),api('/api/migration-batches')]);
+    if(!rosterRes.ok){ body.innerHTML='<div class="err-box">'+esc(rosterRes.body.error||'Could not load this batch.')+'</div>'; return; }
+    const index=(sessionsRes.ok && sessionsRes.body.items) || [];
+    const roster=rosterRes.body.items.find(function(b){ return b.id===batchId; });
+    if(!roster){ body.innerHTML='<div class="err-box">Unknown batch.</div>'; return; }
+    renderMigrationBatch(batchId,roster,index);
+  }
+
+  function renderMigrationBatch(batchId,roster,index){
+    const body=document.getElementById('migrationdetailbody');
+    const sessions=index.filter(function(s){ return s.track==='migration-readiness' && s.batch===batchId; });
+    const expected=Math.max(roster.clients.filter(Boolean).length,1);
+    const readiness=rollupBatchReadiness(sessions,expected);
+    const slots=[roster.clients[0]||'',roster.clients[1]||''];
+
+    body.innerHTML=
+      '<div class="dhead">'+
+        '<div class="dmeta"><h2>'+esc(roster.label)+'</h2>'+
+          '<div class="subline">'+esc(roster.description)+' &middot; <span class="badge '+readinessBadgeClass(readiness.level)+'">'+esc(readiness.label)+'</span></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Batch setup</h3>'+
+        '<div class="row">'+
+          '<div class="field"><label for="rosterclient0">Locked client 1</label>'+
+            '<input type="text" id="rosterclient0" maxlength="200" value="'+esc(slots[0])+'" placeholder="Client name"></div>'+
+          '<div class="field"><label for="rosterclient1">Locked client 2</label>'+
+            '<input type="text" id="rosterclient1" maxlength="200" value="'+esc(slots[1])+'" placeholder="Client name"></div>'+
+        '</div>'+
+        '<div class="field"><label for="rostertargetdate">Target migration date</label>'+
+          '<input type="date" id="rostertargetdate" value="'+esc(roster.targetDate||'')+'"></div>'+
+        '<p class="hint" id="rostersavehint" style="margin-top:6px"></p>'+
+      '</div>'+
+      '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Sessions</h3>'+
+        (sessions.length ? sessions.map(function(s){
+          return '<div class="pitem"><div class="pitem-head"><div class="pitem-text">'+esc(s.customerName)+'</div>'+
+            '<span class="badge '+esc(s.status)+'">'+esc(badgeLabel(s.status))+'</span></div>'+
+            '<div class="rationale">'+esc(fmtDate(s.sessionDate))+' &middot; Interviewer: '+esc(s.interviewer)+
+              (s.migrationReadinessVerdict?' &middot; <span class="badge '+riskVerdictBadgeClass(s.migrationReadinessVerdict)+'">'+esc(riskVerdictLabel(s.migrationReadinessVerdict))+'</span>':'')+
+            '</div>'+
+            '<div style="margin-top:8px"><a class="chip" href="#sessions/'+esc(s.id)+'">Open session</a></div>'+
+          '</div>';
+        }).join('') : '<p class="sub">No sessions logged yet for this batch.</p>')+
+        '<div style="margin-top:12px"><a href="#migration/'+esc(batchId)+'/new" class="btn small transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]">+ New session</a></div>'+
+      '</div>';
+
+    function saveRoster(patch){
+      const hint=document.getElementById('rostersavehint');
+      hint.textContent='Saving…';
+      return api('/api/migration-batches',{method:'POST',body:JSON.stringify(Object.assign({action:'update',batchId:batchId},patch))}).then(function(res){
+        hint.textContent=res.ok?'Saved.':(res.body.error||'Could not save.');
+        if(res.ok) setTimeout(function(){ if(hint.textContent==='Saved.') hint.textContent=''; },2000);
+      });
+    }
+    ['rosterclient0','rosterclient1'].forEach(function(id,i){
+      document.getElementById(id).addEventListener('blur',function(){
+        const next=slots.slice();
+        next[i]=this.value.trim();
+        slots[i]=next[i];
+        saveRoster({clients:next});
+      });
+    });
+    document.getElementById('rostertargetdate').addEventListener('change',function(){
+      saveRoster({targetDate:this.value||null});
+    });
+  }
+
+  /* ---- migration readiness: new-session form, scoped to one batch ---- */
+  async function openMigrationForm(batchId){
+    const form=document.getElementById('migrationform');
+    form.dataset.batchId=batchId;
+    document.getElementById('migrationformbacklink').href='#migration/'+encodeURIComponent(batchId);
+    form.reset();
+    document.getElementById('migrationformerr').hidden=true;
+    migrationUpdateLen();
+
+    const clientSel=document.getElementById('mf-customerName');
+    clientSel.innerHTML='<p class="sub">Loading…</p>';
+    const res=await api('/api/migration-batches');
+    const roster=res.ok ? res.body.items.find(function(b){ return b.id===batchId; }) : null;
+    const clients=roster ? roster.clients.filter(Boolean) : [];
+    clientSel.innerHTML=clients.length
+      ? '<option value="" disabled selected>— Select client —</option>'+clients.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('')
+      : '<option value="" disabled selected>No locked clients set for this batch yet</option>';
+  }
+
+  const migrationForm=document.getElementById('migrationform'),
+        migrationFormErr=document.getElementById('migrationformerr'),
+        migrationTranscriptTa=document.getElementById('mf-transcript'),
+        migrationTranscriptFile=document.getElementById('mf-transcriptfile'),
+        migrationTranslen=document.getElementById('mf-translen'),
+        migrationFormSubmit=document.getElementById('migrationformsubmit');
+  const migrationUpdateLen=wireTranscriptUpload(migrationTranscriptFile,migrationTranscriptTa,migrationTranslen,migrationFormErr);
+
+  document.getElementById('migrationformcancel').addEventListener('click',function(){
+    location.hash='#migration/'+encodeURIComponent(migrationForm.dataset.batchId||'');
+  });
+
+  migrationForm.addEventListener('submit',async function(e){
+    e.preventDefault();
+    migrationFormErr.hidden=true;
+    migrationFormSubmit.disabled=true; migrationFormSubmit.textContent='Creating…';
+    try{
+      const batchId=migrationForm.dataset.batchId;
+      const payload={
+        track:'migration-readiness',
+        batch:batchId,
+        customerName:document.getElementById('mf-customerName').value,
+        interviewer:document.getElementById('mf-interviewer').value,
+        sessionDate:document.getElementById('mf-sessionDate').value,
+        participants:document.getElementById('mf-participants').value,
+        transcript:migrationTranscriptTa.value
+      };
+      if(!payload.customerName){
+        migrationFormErr.textContent='Select a client.'; migrationFormErr.hidden=false; return;
+      }
+      const res=await api('/api/sessions',{method:'POST',body:JSON.stringify(Object.assign({action:'create'},payload))});
+      if(!res.ok){ migrationFormErr.textContent=res.body.error||'Could not create the session.'; migrationFormErr.hidden=false; return; }
+      const id=res.body.item.id;
+      location.hash='#sessions/'+id;
+      api('/api/sessions-analyze',{method:'POST',body:JSON.stringify({id:id})}).then(function(){
+        if(location.hash==='#sessions/'+id) openDetail(id);
+      });
+    }catch(err){
+      migrationFormErr.textContent='Could not reach the server.'; migrationFormErr.hidden=false;
+    }finally{
+      migrationFormSubmit.disabled=false; migrationFormSubmit.textContent='Create and analyze';
+    }
+  });
 
   /* ---- modules overview ---- */
   function staleness(trend, readyIds){

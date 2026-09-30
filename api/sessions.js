@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const auth = require('../lib/auth');
 const store = require('../lib/store');
 const modules = require('../lib/modules');
+const batches = require('../lib/batches');
 
 const NAME_MAX = 200;
 const PARTICIPANTS_MAX = 500;
@@ -53,7 +54,17 @@ async function handleGet(req, res) {
   return res.status(200).json({ items: items });
 }
 
-async function validateFields(body) {
+/*
+ * Pure — takes the already-fetched managed clients list and migration-batch
+ * roster rather than reading the store itself, so it's directly testable
+ * (see test/sessions-validate.test.js) and so callers only ever fetch each
+ * once per request. Branches on `body.track`: 'migration-readiness' sessions
+ * are validated against their batch's locked 2-client roster instead of the
+ * general clients list, and need a `batch` instead of a `module` — a session
+ * is one or the other, never both, exactly like `bucket` vs no-bucket on a
+ * feature card.
+ */
+function validateFields(body, clients, roster) {
   const errors = [];
   const out = {};
 
@@ -62,19 +73,39 @@ async function validateFields(body) {
   else if (interviewer.length > NAME_MAX) errors.push('interviewer is longer than ' + NAME_MAX + ' characters.');
   else out.interviewer = interviewer.trim();
 
-  const clients = await store.readClients();
-  if (typeof body.customerName !== 'string' || !body.customerName.trim()) {
-    errors.push('customerName is required.');
-  } else if (!clients.some(function (c) { return c === body.customerName; })) {
-    errors.push('customerName must be one of the managed clients — add it via the client list first.');
-  } else {
-    out.customerName = body.customerName;
-  }
+  const isMigration = body.track === 'migration-readiness';
+  out.track = isMigration ? 'migration-readiness' : 'discovery';
 
-  if (typeof body.module !== 'string' || !modules.isValidModule(body.module)) {
-    errors.push('module must be one of the known modules.');
+  if (isMigration) {
+    out.module = null;
+    if (typeof body.batch !== 'string' || !batches.isValidBatch(body.batch)) {
+      errors.push('batch is required and must be one of the known migration batches.');
+    } else {
+      out.batch = body.batch;
+      const allowed = (roster && roster[body.batch] && roster[body.batch].clients || []).filter(Boolean);
+      if (typeof body.customerName !== 'string' || !body.customerName.trim()) {
+        errors.push('customerName is required.');
+      } else if (!allowed.includes(body.customerName)) {
+        errors.push('customerName must be one of this batch\'s locked clients — set them on the batch first.');
+      } else {
+        out.customerName = body.customerName;
+      }
+    }
   } else {
-    out.module = body.module;
+    out.batch = null;
+    if (typeof body.customerName !== 'string' || !body.customerName.trim()) {
+      errors.push('customerName is required.');
+    } else if (!clients.some(function (c) { return c === body.customerName; })) {
+      errors.push('customerName must be one of the managed clients — add it via the client list first.');
+    } else {
+      out.customerName = body.customerName;
+    }
+
+    if (typeof body.module !== 'string' || !modules.isValidModule(body.module)) {
+      errors.push('module must be one of the known modules.');
+    } else {
+      out.module = body.module;
+    }
   }
 
   if (typeof body.sessionDate !== 'string' || !DATE_RE.test(body.sessionDate)) {
@@ -115,6 +146,13 @@ function indexEntry(record) {
     interviewer: record.interviewer,
     sessionDate: record.sessionDate,
     module: record.module,
+    track: record.track || 'discovery',
+    batch: record.batch || null,
+    /* Denormalized so the migration-readiness batch overview can compute
+       each batch's readiness rollup (lib/migration-readiness.js) from the
+       session index alone — no full-record fetch per session. */
+    migrationReadinessVerdict: (record.migrationRisk && record.migrationRisk.overall_readiness
+      && record.migrationRisk.overall_readiness.verdict) || null,
     status: record.status,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt
@@ -146,7 +184,8 @@ async function handlePost(req, res) {
     const existing = await store.readSession(body.id);
     if (!existing) return res.status(404).json({ error: 'No session with that id.' });
 
-    const fields = await validateFields(body);
+    const [clients, roster] = await Promise.all([store.readClients(), store.readMigrationRoster()]);
+    const fields = validateFields(body, clients, roster);
     if (fields.errors.length) return res.status(400).json({ error: fields.errors.join(' ') });
 
     const now = new Date().toISOString();
@@ -161,7 +200,8 @@ async function handlePost(req, res) {
   }
 
   if (body.action === 'create' || !body.action) {
-    const fields = await validateFields(body);
+    const [clients, roster] = await Promise.all([store.readClients(), store.readMigrationRoster()]);
+    const fields = validateFields(body, clients, roster);
     const transcript = validateTranscript(body);
     const errors = fields.errors.concat(transcript.errors || []);
     if (errors.length) return res.status(400).json({ error: errors.join(' ') });
@@ -191,3 +231,6 @@ async function handlePost(req, res) {
 
   return res.status(400).json({ error: 'Unknown action.' });
 }
+
+/* Pure, no store access — exported for test/sessions-validate.test.js. */
+module.exports.validateFields = validateFields;

@@ -4,23 +4,26 @@ const auth = require('../lib/auth');
 const store = require('../lib/store');
 const analysis = require('../lib/analysis');
 const modules = require('../lib/modules');
+const batches = require('../lib/batches');
 const raisedItems = require('../lib/raised-items');
+const migrationRisk = require('../lib/migration-risk');
 const featureSync = require('../lib/feature-sync');
 
 /*
- * Generates (or regenerates) the analysis for one discovery session. Split
- * out from api/sessions.js because this is the one slow, expensive operation
- * in this feature — an LLM call, not a Redis round trip — and needs its own
- * maxDuration in vercel.json.
+ * Generates (or regenerates) the analysis for one session, on either track.
+ * Split out from api/sessions.js because this is the one slow, expensive
+ * operation in this feature — LLM calls, not a Redis round trip — and needs
+ * its own maxDuration in vercel.json.
  *
  * Runs the 11-question analysis and the raised-items extraction (which
  * feeds the roadmap board's feature cards, classified by content — see
- * lib/raised-items.js) in parallel: both only need the transcript, so this
- * adds no wall-clock cost over the single call that used to happen here. A
- * raised-items failure is captured on `raisedItemsError` and never fails
- * this request or blocks the (already-working) 11-question result from
- * saving — the Sessions tab must keep working exactly as it does today even
- * if the newer, separate extraction has a bad day.
+ * lib/raised-items.js) in parallel for every session, on either track: both
+ * only need the transcript, so this adds no wall-clock cost over a single
+ * call. A migration-readiness session additionally runs
+ * lib/migration-risk.js's risk-profile extraction in the same parallel
+ * batch. Each of the two extra calls fails in isolation — captured on
+ * raisedItemsError/migrationRiskError — and never blocks the (already-
+ * working) 11-question result from saving.
  */
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -47,14 +50,29 @@ module.exports = async function handler(req, res) {
   const record = await store.readSession(body.id);
   if (!record) return res.status(404).json({ error: 'No session with that id.' });
 
+  const isMigration = record.track === 'migration-readiness';
+
   try {
-    const moduleLabel = modules.labelFor(record.module);
-    const [analysisResult, raisedItemsOutcome] = await Promise.all([
-      analysis.generateAnalysis(record, moduleLabel),
-      raisedItems.extractRaisedItems(record, moduleLabel).catch(function (err) {
+    const topicLabel = isMigration
+      ? batches.labelFor(record.batch) + ': ' + batches.descriptionFor(record.batch)
+      : modules.labelFor(record.module);
+
+    const calls = [
+      analysis.generateAnalysis(record, topicLabel),
+      raisedItems.extractRaisedItems(record, topicLabel).catch(function (err) {
         return { error: (err && err.message) || 'unknown error' };
       })
-    ]);
+    ];
+    if (isMigration) {
+      calls.push(
+        migrationRisk.generateMigrationRisk(record, batches.labelFor(record.batch), batches.descriptionFor(record.batch))
+          .catch(function (err) {
+            return { error: (err && err.message) || 'unknown error' };
+          })
+      );
+    }
+
+    const [analysisResult, raisedItemsOutcome, migrationRiskOutcome] = await Promise.all(calls);
 
     const now = new Date().toISOString();
     const updated = Object.assign({}, record, {
@@ -80,6 +98,17 @@ module.exports = async function handler(req, res) {
       updated.raisedItemsError = null;
     }
 
+    if (isMigration) {
+      if (migrationRiskOutcome.error) {
+        updated.migrationRiskError = migrationRiskOutcome.error;
+      } else {
+        updated.migrationRisk = migrationRiskOutcome.migrationRisk;
+        updated.migrationRiskModel = migrationRiskOutcome.model;
+        updated.migrationRiskGeneratedAt = now;
+        updated.migrationRiskError = null;
+      }
+    }
+
     await store.writeSession(body.id, updated);
 
     if (!raisedItemsOutcome.error) {
@@ -92,7 +121,9 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    await syncIndexStatus(body.id, 'ready', updated.updatedAt);
+    await syncIndexStatus(body.id, 'ready', updated.updatedAt, isMigration && updated.migrationRisk
+      ? { migrationReadinessVerdict: updated.migrationRisk.overall_readiness.verdict }
+      : {});
     return res.status(200).json({ ok: true, item: updated });
   } catch (err) {
     const reason = (err && err.message) || 'unknown error';
@@ -108,7 +139,7 @@ module.exports = async function handler(req, res) {
       updatedAt: now
     });
     await store.writeSession(body.id, updated);
-    await syncIndexStatus(body.id, 'error', now);
+    await syncIndexStatus(body.id, 'error', now, {});
 
     const status = err && err.code === 'NO_API_KEY' ? 503 : 502;
     return res.status(status).json({
@@ -119,10 +150,10 @@ module.exports = async function handler(req, res) {
   }
 };
 
-async function syncIndexStatus(id, status, updatedAt) {
+async function syncIndexStatus(id, status, updatedAt, extra) {
   const index = await store.readSessionIndex();
   const next = index.map(function (e) {
-    return e.id === id ? Object.assign({}, e, { status: status, updatedAt: updatedAt }) : e;
+    return e.id === id ? Object.assign({}, e, { status: status, updatedAt: updatedAt }, extra || {}) : e;
   });
   await store.writeSessionIndex(next);
 }
