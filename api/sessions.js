@@ -91,8 +91,24 @@ function validateFields(body, clients, roster) {
         out.customerName = body.customerName;
       }
     }
+
+    /* Per-session planned migration date — distinct from the batch-level
+       target date (lib/store.js's migration roster): the batch's two locked
+       clients can each land on a different actual planned date, so this is
+       captured per session rather than only once per batch. Optional — a
+       session can be logged before a date is confirmed. */
+    if (body.plannedMigrationDate !== undefined && body.plannedMigrationDate !== null && body.plannedMigrationDate !== '') {
+      if (typeof body.plannedMigrationDate !== 'string' || !DATE_RE.test(body.plannedMigrationDate)) {
+        errors.push('plannedMigrationDate must be in YYYY-MM-DD format.');
+      } else {
+        out.plannedMigrationDate = body.plannedMigrationDate;
+      }
+    } else {
+      out.plannedMigrationDate = null;
+    }
   } else {
     out.batch = null;
+    out.plannedMigrationDate = null;
     if (typeof body.customerName !== 'string' || !body.customerName.trim()) {
       errors.push('customerName is required.');
     } else if (!clients.some(function (c) { return c === body.customerName; })) {
@@ -148,6 +164,7 @@ function indexEntry(record) {
     module: record.module,
     track: record.track || 'discovery',
     batch: record.batch || null,
+    plannedMigrationDate: record.plannedMigrationDate || null,
     /* Denormalized so the migration-readiness batch overview can compute
        each batch's readiness rollup (lib/migration-readiness.js) from the
        session index alone — no full-record fetch per session. */

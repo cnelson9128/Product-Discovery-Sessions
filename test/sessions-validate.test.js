@@ -78,3 +78,26 @@ test('an unconfigured batch (no roster entry yet) rejects every customerName', f
   const res = validateFields(migrationBody({ batch: 'batch-1', customerName: 'Anyone' }), CLIENTS, {});
   assert.ok(res.errors.some(function (e) { return /locked clients/.test(e); }));
 });
+
+test('plannedMigrationDate is optional and only ever set on the migration-readiness path', function () {
+  const noDate = validateFields(migrationBody(), CLIENTS, ROSTER);
+  assert.deepEqual(noDate.errors, []);
+  assert.equal(noDate.out.plannedMigrationDate, null, 'omitted entirely is fine, defaults to null');
+
+  const withDate = validateFields(migrationBody({ plannedMigrationDate: '2026-04-01' }), CLIENTS, ROSTER);
+  assert.deepEqual(withDate.errors, []);
+  assert.equal(withDate.out.plannedMigrationDate, '2026-04-01');
+
+  const badDate = validateFields(migrationBody({ plannedMigrationDate: '04/01/2026' }), CLIENTS, ROSTER);
+  assert.ok(badDate.errors.some(function (e) { return /plannedMigrationDate must be/.test(e); }));
+
+  const emptyString = validateFields(migrationBody({ plannedMigrationDate: '' }), CLIENTS, ROSTER);
+  assert.deepEqual(emptyString.errors, []);
+  assert.equal(emptyString.out.plannedMigrationDate, null, 'an empty string clears it rather than erroring');
+
+  // A discovery session never gets this field, even if a stray value is sent —
+  // the whole field only has meaning on the migration-readiness track.
+  const discoveryWithStrayValue = validateFields(discoveryBody({ plannedMigrationDate: '2026-04-01' }), CLIENTS, ROSTER);
+  assert.deepEqual(discoveryWithStrayValue.errors, []);
+  assert.equal(discoveryWithStrayValue.out.plannedMigrationDate, null);
+});

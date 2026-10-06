@@ -441,9 +441,15 @@ try{var _t=localStorage.getItem('pds-theme');
           <input type="text" id="mf-interviewer" name="interviewer" maxlength="200" required>
         </div>
       </div>
-      <div class="field">
-        <label for="mf-sessionDate">Session date</label>
-        <input type="date" id="mf-sessionDate" name="sessionDate" required>
+      <div class="row">
+        <div class="field">
+          <label for="mf-sessionDate">Migration readiness session date</label>
+          <input type="date" id="mf-sessionDate" name="sessionDate" required>
+        </div>
+        <div class="field">
+          <label for="mf-plannedMigrationDate">Planned migration date (optional)</label>
+          <input type="date" id="mf-plannedMigrationDate" name="plannedMigrationDate">
+        </div>
       </div>
       <div class="field">
         <label for="mf-participants">Participants (optional)</label>
@@ -1093,7 +1099,10 @@ function bootApp(storageConfigured){
           '<h2>'+esc(item.customerName)+'</h2>'+
           '<div class="subline">'+esc(isMigration?batchLabel(item.batch):moduleLabel(item.module))+' &middot; Interviewer: '+esc(item.interviewer)+
             (item.participants?' &middot; Participants: '+esc(item.participants):'')+
-            ' &middot; '+esc(fmtDate(item.sessionDate))+
+            (isMigration
+              ? ' &middot; Migration readiness session date: '+esc(fmtDate(item.sessionDate))+
+                ' &middot; Planned migration date: '+(item.plannedMigrationDate?esc(fmtDate(item.plannedMigrationDate)):'Not set')
+              : ' &middot; '+esc(fmtDate(item.sessionDate)))+
             ' &middot; <span class="badge '+esc(item.status)+'">'+esc(badgeLabel(item.status))+'</span></div>'+
         '</div>'+
         '<div class="dactions">'+
@@ -1190,7 +1199,8 @@ function bootApp(storageConfigured){
         (sessions.length ? sessions.map(function(s){
           return '<div class="pitem"><div class="pitem-head"><div class="pitem-text">'+esc(s.customerName)+'</div>'+
             '<span class="badge '+esc(s.status)+'">'+esc(badgeLabel(s.status))+'</span></div>'+
-            '<div class="rationale">'+esc(fmtDate(s.sessionDate))+' &middot; Interviewer: '+esc(s.interviewer)+
+            '<div class="rationale">Session: '+esc(fmtDate(s.sessionDate))+' &middot; Interviewer: '+esc(s.interviewer)+
+              ' &middot; Planned migration: '+(s.plannedMigrationDate?esc(fmtDate(s.plannedMigrationDate)):'Not set')+
               (s.migrationReadinessVerdict?' &middot; <span class="badge '+riskVerdictBadgeClass(s.migrationReadinessVerdict)+'">'+esc(riskVerdictLabel(s.migrationReadinessVerdict))+'</span>':'')+
             '</div>'+
             '<div style="margin-top:8px"><a class="chip" href="#sessions/'+esc(s.id)+'">Open session</a></div>'+
@@ -1263,6 +1273,7 @@ function bootApp(storageConfigured){
         customerName:document.getElementById('mf-customerName').value,
         interviewer:document.getElementById('mf-interviewer').value,
         sessionDate:document.getElementById('mf-sessionDate').value,
+        plannedMigrationDate:document.getElementById('mf-plannedMigrationDate').value,
         participants:document.getElementById('mf-participants').value,
         transcript:migrationTranscriptTa.value
       };

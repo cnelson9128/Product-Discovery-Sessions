@@ -196,7 +196,10 @@ everything else (sign-in, navigation, forms) still works.
    sessions are analyzed, then green/amber/red from the **worst** of the two verdicts (never an
    average — a batch is only as ready as its riskiest customer signal). **+ New session** on a
    batch's page is scoped to it: the client dropdown only offers that batch's locked names, no module
-   field (batch replaces that role). Each session gets the same 11-question analysis as a discovery
+   field (batch replaces that role), and asks for two dates per session: the **migration readiness
+   session date** (when the interview happened) and an optional, per-session **planned migration
+   date** — distinct from the batch's own target date, since the batch's two locked clients can land
+   on different actual dates. Each session gets the same 11-question analysis as a discovery
    session, plus a **Migration risk profile** — an overall readiness verdict, themed risk areas with
    severity, concrete blockers, and whether the customer's own signal supports the batch's target
    date — all grounded only in what was said, same as everywhere else in this app. Any feature,
@@ -369,7 +372,7 @@ IP — 10 in 15 minutes — when Redis is linked.
 | Key | Holds |
 |---|---|
 | `pds:session:index` | Lightweight metadata for every session on both tracks — `track`, and either `module` (discovery) or `batch` (migration-readiness), plus the denormalized `migrationReadinessVerdict` once a migration session's risk profile exists. No transcript, no analysis. What the dashboard, module-count, and batch-overview views read. |
-| `pds:session:<id>` | One session's full record: metadata, transcript, the 11-question `analysis` (both tracks), the separate `raisedItems` extraction (every feature/problem/request/opportunity found in the transcript, each pre-classified into its module — both tracks), and — migration-readiness sessions only — `migrationRisk` (readiness verdict, risk areas, blockers, target-date feasibility). Fetched only when that session's detail view is opened, when building a module's narrative trend, or when syncing feature cards. |
+| `pds:session:<id>` | One session's full record: metadata, transcript, the 11-question `analysis` (both tracks), the separate `raisedItems` extraction (every feature/problem/request/opportunity found in the transcript, each pre-classified into its module — both tracks), and — migration-readiness sessions only — `migrationRisk` (readiness verdict, risk areas, blockers, target-date feasibility) and `plannedMigrationDate` (optional, per-session — independent of the batch's own `targetDate` in `pds:migration:roster`, since the batch's two locked clients can land on different actual dates). Fetched only when that session's detail view is opened, when building a module's narrative trend, or when syncing feature cards. |
 | `pds:clients` | A JSON array of managed client names — the product-discovery track's roster. |
 | `pds:migration:roster` | The migration-readiness track's roster: `{ [batchId]: { clients: [name1, name2], targetDate } }`. Editable per batch on that batch's page; the 8 batch ids/labels/descriptions themselves are fixed in `lib/batches.js`, same as `lib/modules.js`. |
 | `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, secondaryModules, confidence, classificationReason, item, rationale, evidenceQuote, supporting_session_ids, sourceSessionId, sourceItemKey}` (model-authored/classified, only `module` user-editable — see below) plus `{bucket, owner, complete, requirementsDone}` (fully user-editable via `api/features.js`), `isManualModule`/`moduleHistory` (set when a human moves `module` by hand — see "Manual overrides" below), and `createdAt`/`updatedAt`. `sourceSessionId`+`sourceItemKey` (`` `${sessionId}#${itemIndex}` ``) link a card back to the exact extracted item it came from, so re-analyzing that session updates the same card rather than duplicating it. |
