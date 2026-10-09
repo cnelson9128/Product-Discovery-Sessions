@@ -252,8 +252,10 @@ everything else (sign-in, navigation, forms) still works.
 9. **Reports** (top nav) is the monthly board pack, led with three hero stat tiles (sessions held,
    features logged, complete), a progress ring for sessions held toward the
    10-per-session-type goal, and a donut chart for the overall Launch/Phase 2/Future Considerations
-   mix. **By session type** is a grid of per-module cards — not a list of bars with a trailing text
-   line — each a self-contained small multiple: total features, the same stage breakdown bar/colors
+   mix. **By session type** is a grid of per-module cards (10 real product modules — Introduction
+   Session is excluded, since it's not a classifiable module and its card would always be empty) —
+   not a list of bars with a trailing text line — each a self-contained small multiple: total
+   features, the same stage breakdown bar/colors
    as everywhere else in the app, and two progress bars scoped to that module's **Launch** bucket
    only — completion and requirements-done — since Phase 2/Future Considerations items aren't being
    worked yet and a blended percentage across all three would understate how close Launch actually

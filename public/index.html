@@ -1909,7 +1909,13 @@ function bootApp(storageConfigured){
     const overall=groupFeatures(features);
     const sessionPct=totalTarget>0 ? (totalSessions/totalTarget*100) : 0;
 
-    const rows=MODULES.map(function(m){
+    /* Introduction Session is excluded from the per-module card grid below —
+       feature classification never files a card under it (it's not a real
+       product module, see lib/module-classification.js's
+       CLASSIFIABLE_MODULE_IDS), so its card would always be empty. Sessions
+       held / overall progress above still count Introduction sessions same
+       as any other — this only trims the always-empty card from the grid. */
+    const rows=MODULES.filter(function(m){ return m.id!=='introduction'; }).map(function(m){
       const sessionCount=index.filter(function(s){ return s.module===m.id; }).length;
       const moduleFeatures=features.filter(function(f){ return f.module===m.id; });
       const g=groupFeatures(moduleFeatures);
