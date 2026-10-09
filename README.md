@@ -254,9 +254,11 @@ everything else (sign-in, navigation, forms) still works.
    10-per-session-type goal, and a donut chart for the overall Launch/Phase 2/Future Considerations
    mix. **By session type** is a grid of per-module cards — not a list of bars with a trailing text
    line — each a self-contained small multiple: total features, the same stage breakdown bar/colors
-   as everywhere else in the app, and a requirements-done progress bar with its own count/percentage,
-   so every number a module needs is visible without hovering (built this way specifically so the
-   grid reads correctly in a cropped screenshot for the exec board pack). **Migration readiness** is
+   as everywhere else in the app, and two progress bars scoped to that module's **Launch** bucket
+   only — completion and requirements-done — since Phase 2/Future Considerations items aren't being
+   worked yet and a blended percentage across all three would understate how close Launch actually
+   is. Every number is visible without hovering (built this way specifically so the grid reads
+   correctly in a cropped screenshot for the exec board pack). **Migration readiness** is
    a status overview of all 8 batches — a summary line of how many are ready/minor concerns/at
    risk/not yet assessed, then one tile per batch with a status icon, the same green/amber/red/grey
    badge used on the Migration Readiness tab, and its session progress — grey across the board until

@@ -282,9 +282,10 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 .modreport-bar{margin-top:2px}
 .modreport-breakdown{font-size:12px;color:var(--ink-3);margin-top:8px}
 .modreport-reqs{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.modreport-progress-row+.modreport-progress-row{margin-top:10px}
+.modreport-progress-label{display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px}
 .modreport-reqs-track{height:8px;border-radius:4px;background:var(--bg);overflow:hidden}
 .modreport-reqs-fill{height:100%;background:var(--accent);border-radius:4px}
-.modreport-reqs-label{display:block;margin-top:6px;font-size:12px;color:var(--ink-2)}
 
 /* Migration-readiness status overview — a status grid, not a magnitude
    chart: 8 fixed batches, each one of 4 discrete states. Color is reused
@@ -1785,24 +1786,36 @@ function bootApp(storageConfigured){
      different kind of measure (progress toward 100%, not a 3-way split) so
      it gets its own single-hue (--accent) bar rather than borrowing a
      bucket color, which would blur the two encodings together. */
-  function moduleReportCard(m, sessionCount, g){
+  /* Completion and requirements-done are scoped to the Launch bucket only —
+     Phase 2/Future Considerations items aren't being worked yet, so a
+     completion % blended across all three buckets understates how close
+     Launch actually is to done. `launchGroup` is groupFeatures() run over
+     just this module's Launch-bucket features, so .complete/.requirementsDone
+     here are already Launch-only counts. */
+  function moduleReportCard(m, sessionCount, g, launchGroup){
     const segs=BUCKETS.map(function(b){
       if(!g[b.id]) return '';
       return '<div class="hbar-seg" style="flex:'+g[b.id]+' '+g[b.id]+' 0%;background:var('+BUCKET_SOLID_VAR[b.id]+')" '+
         'tabindex="0" role="img" aria-label="'+esc(b.label)+': '+g[b.id]+' feature'+(g[b.id]===1?'':'s')+'"></div>';
     }).join('');
-    const reqPct=g.total ? Math.round(g.requirementsDone/g.total*100) : 0;
+    const launchTotal=launchGroup.total;
+    const completePct=launchTotal ? Math.round(launchGroup.complete/launchTotal*100) : 0;
+    const reqPct=launchTotal ? Math.round(launchGroup.requirementsDone/launchTotal*100) : 0;
     return '<div class="modreport-card shadow-sm hover:shadow-md transition-shadow duration-300">'+
       '<div class="modreport-head"><h4>'+esc(m.label)+'</h4><span class="modreport-total">'+g.total+' feature'+(g.total===1?'':'s')+'</span></div>'+
       '<div class="hint" style="margin:0 0 8px">'+sessionCount+' session'+(sessionCount===1?'':'s')+' logged</div>'+
       (g.total
         ? '<div class="hbar-track modreport-bar">'+segs+'</div>'+
-          '<div class="modreport-breakdown">Launch '+g.launch+' &middot; Phase 2 '+g.phase2+' &middot; Future Considerations '+g.bau+'</div>'+
-          '<div class="modreport-reqs">'+
-            '<div class="modreport-reqs-track"><div class="modreport-reqs-fill" style="width:'+reqPct+'%"></div></div>'+
-            '<span class="modreport-reqs-label">'+g.requirementsDone+' of '+g.total+' requirements done ('+reqPct+'%) &middot; '+g.complete+' complete</span>'+
-          '</div>'
+          '<div class="modreport-breakdown">Launch '+g.launch+' &middot; Phase 2 '+g.phase2+' &middot; Future Considerations '+g.bau+'</div>'
         : '<p class="hint" style="margin:0">No features logged yet</p>')+
+      '<div class="modreport-reqs">'+
+        (launchTotal
+          ? '<div class="modreport-progress-row"><span class="modreport-progress-label">Launch completion &middot; '+launchGroup.complete+' of '+launchTotal+' ('+completePct+'%)</span>'+
+              '<div class="modreport-reqs-track"><div class="modreport-reqs-fill" style="width:'+completePct+'%"></div></div></div>'+
+            '<div class="modreport-progress-row"><span class="modreport-progress-label">Launch requirements done &middot; '+launchGroup.requirementsDone+' of '+launchTotal+' ('+reqPct+'%)</span>'+
+              '<div class="modreport-reqs-track"><div class="modreport-reqs-fill" style="width:'+reqPct+'%"></div></div></div>'
+          : '<p class="hint" style="margin:0">No Launch features yet</p>')+
+      '</div>'+
     '</div>';
   }
 
@@ -1898,8 +1911,10 @@ function bootApp(storageConfigured){
 
     const rows=MODULES.map(function(m){
       const sessionCount=index.filter(function(s){ return s.module===m.id; }).length;
-      const g=groupFeatures(features.filter(function(f){ return f.module===m.id; }));
-      return {module:m,sessionCount:sessionCount,g:g};
+      const moduleFeatures=features.filter(function(f){ return f.module===m.id; });
+      const g=groupFeatures(moduleFeatures);
+      const launchGroup=groupFeatures(moduleFeatures.filter(function(f){ return f.bucket==='launch'; }));
+      return {module:m,sessionCount:sessionCount,g:g,launchGroup:launchGroup};
     });
 
     const batchRows=batchRoster.map(function(b){
@@ -1933,7 +1948,7 @@ function bootApp(storageConfigured){
       '</div>'+
       '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>By session type</h3>'+
         hbarLegend()+
-        '<div class="modreport-grid">'+rows.map(function(r){ return moduleReportCard(r.module,r.sessionCount,r.g); }).join('')+'</div>'+
+        '<div class="modreport-grid">'+rows.map(function(r){ return moduleReportCard(r.module,r.sessionCount,r.g,r.launchGroup); }).join('')+'</div>'+
       '</div>'+
       '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Migration readiness</h3>'+
         '<div class="statussummary">'+
