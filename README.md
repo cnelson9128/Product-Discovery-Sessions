@@ -229,10 +229,16 @@ everything else (sign-in, navigation, forms) still works.
      override: the parser will never move it again on a later re-analysis, and a **📌 Manual** button
      appears to hand it back — click it to restore the parser's own classification.
    - **Assign an owner** (free text, inline on the card, shown as an initials avatar).
-   - **Mark requirements done** (a checkbox — independent of delivery) and/or **mark complete**.
+   - **Mark requirements done** (a checkbox — independent of delivery) and/or **mark complete**
+     (marking complete also marks requirements done, since a feature can't be complete without that
+     already having happened — reopening a completed card doesn't undo it).
    - **Remove it** from the board (with a confirmation — this one has no undo).
 
-   All of these save immediately, independent of any rebuild. **Build trend** (still available per
+   A filter bar above the board — **All** / **Open** / **Requirements complete** / **Completed** —
+   narrows all three columns to one slice of the board at a time (a purely client-side view, nothing
+   stored or sent to the server); "Requirements complete" means ready to build but not yet marked
+   complete, so the three options partition the board rather than overlap. All of these save
+   immediately, independent of any rebuild. **Build trend** (still available per
    module) is now purely a narrative synthesis — a **Value created** section (standout "wow" quotes
    pulled from sessions' own value-created statements and one-sentence pitches — a single striking
    reaction is enough to earn a spot here), adoption blockers, and draft GTM messaging, from every

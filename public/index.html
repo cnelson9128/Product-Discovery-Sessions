@@ -205,6 +205,11 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
    dropdown box. No drag-and-drop: that's a materially bigger, riskier
    feature to add sight-unseen (no browser available to verify interaction
    behavior), so the existing dropdown-based move stays the mechanism. */
+.featurefilterbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.filterpill{font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink-2);cursor:pointer;transition:all .15s ease}
+.filterpill:hover{border-color:var(--accent);color:var(--accent)}
+.filterpill.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .prioritycols{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 @media (max-width:800px){.prioritycols{grid-template-columns:1fr}}
 .pcol{border-radius:14px;padding:12px;background:var(--bg);border:1px solid var(--line)}
@@ -724,6 +729,11 @@ function bootApp(storageConfigured){
   let INDEX=[];
   let filterText='';
   let filterModule='';
+  /* Persists across re-renders of a module's prioritization board (switching
+     modules, or any card mutation re-rendering the page) so the filter stays
+     put until the user changes it. Purely a client-side view filter — never
+     sent to the server, never touches stored feature data. */
+  let featureBoardFilter='all';
 
   /* ---- theme ---- */
   const themeBtn=document.getElementById('theme');
@@ -1468,15 +1478,45 @@ function bootApp(storageConfigured){
         '</div>'+
       '</div>';
     }
+    /* Open / Requirements complete / Completed is a three-way partition of
+       the board, not three overlapping tags — "Requirements complete" means
+       ready to build but not yet marked complete, since completing a feature
+       already implies its requirements are done (api/features.js's
+       applyPatch). Purely a client-side view filter: never sent to the
+       server, never touches any stored feature. */
+    const FEATURE_FILTERS=[
+      {id:'all',label:'All'},
+      {id:'open',label:'Open'},
+      {id:'reqdone',label:'Requirements complete'},
+      {id:'completed',label:'Completed'}
+    ];
+    function matchesFeatureFilter(c,filterId){
+      if(filterId==='completed') return !!c.complete;
+      if(filterId==='reqdone') return !c.complete && !!c.requirementsDone;
+      if(filterId==='open') return !c.complete && !c.requirementsDone;
+      return true;
+    }
+    const visibleFeatures=features.filter(function(c){ return matchesFeatureFilter(c,featureBoardFilter); });
+
     function prioCol(bucket,title){
-      const items=features.filter(function(c){ return c.bucket===bucket; });
+      const items=visibleFeatures.filter(function(c){ return c.bucket===bucket; });
       return '<div class="pcol">'+
         '<div class="pcol-head"><h4>'+title+'</h4>'+
           '<span class="pcol-count" style="background:var('+BUCKET_SOLID_VAR[bucket]+')">'+items.length+'</span>'+
         '</div>'+
-        (items.length ? items.map(renderCard).join('') : '<p class="rationale px-1">Nothing here yet.</p>')+
+        (items.length ? items.map(renderCard).join('')
+          : '<p class="rationale px-1">'+(features.some(function(c){ return c.bucket===bucket; })?'No features match this filter.':'Nothing here yet.')+'</p>')+
       '</div>';
     }
+
+    const featureFilterBar=
+      '<div class="featurefilterbar">'+
+        '<span class="hint">Filter:</span>'+
+        FEATURE_FILTERS.map(function(f){
+          return '<button type="button" class="filterpill'+(f.id===featureBoardFilter?' active':'')+'" data-filter="'+f.id+'">'+esc(f.label)+'</button>';
+        }).join('')+
+        (featureBoardFilter!=='all'?'<span class="hint">Showing '+visibleFeatures.length+' of '+features.length+'</span>':'')+
+      '</div>';
 
     /* Feature cards are classified per-session, independent of whether this
        module's narrative trend has ever been built (see
@@ -1485,9 +1525,11 @@ function bootApp(storageConfigured){
        the narrative panels below it (overview/value created/adoption
        blockers/GTM) depend on a build having run. */
     const prioritizationPanel=
-      '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Feature prioritization</h3><div class="prioritycols">'+
-        prioCol('launch','Launch')+prioCol('phase2','Phase 2')+prioCol('bau','Future Considerations')+
-      '</div></div>';
+      '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Feature prioritization</h3>'+
+        featureFilterBar+
+        '<div class="prioritycols">'+
+          prioCol('launch','Launch')+prioCol('phase2','Phase 2')+prioCol('bau','Future Considerations')+
+        '</div></div>';
 
     let narrative;
     if(!trend || !trend.result){
@@ -1542,6 +1584,13 @@ function bootApp(storageConfigured){
       const res=await api('/api/module-trends-build',{method:'POST',body:JSON.stringify({module:moduleId})});
       if(!res.ok){ alert(res.body.error||'Could not build the trend.'); }
       await openModuleDetail(moduleId);
+    });
+
+    body.querySelectorAll('.filterpill').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        featureBoardFilter=btn.dataset.filter;
+        renderModuleDetail(moduleId,trend,index,features); // re-render only — no fetch, no data touched
+      });
     });
 
     body.querySelectorAll('.movesel').forEach(function(sel){
