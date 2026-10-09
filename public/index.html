@@ -270,8 +270,42 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
   z-index:5;pointer-events:none;font-weight:600}
 .hbar-total{font-size:13px;font-weight:700;color:var(--ink-2);min-width:24px;text-align:right}
 .hbar-statusline{font-size:12px;color:var(--ink-3);margin-top:2px}
+
+/* Per-module report cards — the "By session type" breakdown as small
+   multiples instead of a list of bars + a trailing text line, so each
+   module's numbers are legible on their own in a cropped screenshot. */
+.modreport-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.modreport-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.modreport-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px}
+.modreport-head h4{margin:0;font-size:14px;color:var(--ink)}
+.modreport-total{font-size:12px;font-weight:800;color:var(--ink-2);white-space:nowrap;flex-shrink:0}
+.modreport-bar{margin-top:2px}
+.modreport-breakdown{font-size:12px;color:var(--ink-3);margin-top:8px}
+.modreport-reqs{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.modreport-reqs-track{height:8px;border-radius:4px;background:var(--bg);overflow:hidden}
+.modreport-reqs-fill{height:100%;background:var(--accent);border-radius:4px}
+.modreport-reqs-label{display:block;margin-top:6px;font-size:12px;color:var(--ink-2)}
+
+/* Migration-readiness status overview — a status grid, not a magnitude
+   chart: 8 fixed batches, each one of 4 discrete states. Color is reused
+   from this app's existing status badges, always paired with an icon glyph
+   and a text label so the state never rides on color alone. */
+.statussummary{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px;font-size:13px;color:var(--ink-2)}
+.statussummary span{display:inline-flex;align-items:center;gap:7px}
+.statusgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.statustile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+.statustile-head{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:8px}
+.statustile-name{font-weight:700;font-size:13px;color:var(--ink)}
+.statustile-icon{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+  border-radius:999px;font-size:11px;font-weight:800;flex-shrink:0}
+.statustile-green{background:var(--ok-bg);color:var(--ok-ink)}
+.statustile-amber{background:var(--warn-bg);color:var(--warn-ink)}
+.statustile-red{background:var(--crit-bg);color:var(--crit-ink)}
+.statustile-grey{background:var(--draft-bg);color:var(--draft-ink)}
+
 @media print{
-  .hbar-seg,.stat-accent,.ring-wrap svg,.donut-ring{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .hbar-seg,.stat-accent,.ring-wrap svg,.donut-ring,.modreport-reqs-fill,.statustile-icon{
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
@@ -1743,6 +1777,54 @@ function bootApp(storageConfigured){
     }).join('')+'</div>';
   }
 
+  /* One module's report as a self-contained card — total, stage breakdown,
+     and requirements-done progress all visible at once with no hover
+     required, so the whole grid reads correctly in a static screenshot for
+     the board pack. Stage breakdown reuses the exact same bucket colors/
+     order as every other chart in this app; requirements-done is a
+     different kind of measure (progress toward 100%, not a 3-way split) so
+     it gets its own single-hue (--accent) bar rather than borrowing a
+     bucket color, which would blur the two encodings together. */
+  function moduleReportCard(m, sessionCount, g){
+    const segs=BUCKETS.map(function(b){
+      if(!g[b.id]) return '';
+      return '<div class="hbar-seg" style="flex:'+g[b.id]+' '+g[b.id]+' 0%;background:var('+BUCKET_SOLID_VAR[b.id]+')" '+
+        'tabindex="0" role="img" aria-label="'+esc(b.label)+': '+g[b.id]+' feature'+(g[b.id]===1?'':'s')+'"></div>';
+    }).join('');
+    const reqPct=g.total ? Math.round(g.requirementsDone/g.total*100) : 0;
+    return '<div class="modreport-card shadow-sm hover:shadow-md transition-shadow duration-300">'+
+      '<div class="modreport-head"><h4>'+esc(m.label)+'</h4><span class="modreport-total">'+g.total+' feature'+(g.total===1?'':'s')+'</span></div>'+
+      '<div class="hint" style="margin:0 0 8px">'+sessionCount+' session'+(sessionCount===1?'':'s')+' logged</div>'+
+      (g.total
+        ? '<div class="hbar-track modreport-bar">'+segs+'</div>'+
+          '<div class="modreport-breakdown">Launch '+g.launch+' &middot; Phase 2 '+g.phase2+' &middot; Future Considerations '+g.bau+'</div>'+
+          '<div class="modreport-reqs">'+
+            '<div class="modreport-reqs-track"><div class="modreport-reqs-fill" style="width:'+reqPct+'%"></div></div>'+
+            '<span class="modreport-reqs-label">'+g.requirementsDone+' of '+g.total+' requirements done ('+reqPct+'%) &middot; '+g.complete+' complete</span>'+
+          '</div>'
+        : '<p class="hint" style="margin:0">No features logged yet</p>')+
+    '</div>';
+  }
+
+  /* Migration-readiness batch status overview — a status case, not a
+     magnitude/categorical one (see dataviz guidance): 8 fixed entities each
+     in one of 4 discrete states, no quantity to plot on an axis. Reuses this
+     app's existing status badge palette (ready/stale/error/draft — the same
+     one already used for session/trend status everywhere else) rather than
+     inventing a competing color system, and pairs every color with an icon
+     glyph AND a text label so status is never carried by color alone. */
+  function migrationStatusIcon(level){
+    return {green:'✓',amber:'!',red:'✕',grey:'–'}[level] || '–';
+  }
+  function migrationStatusTile(b, readiness, sessionCount, expected){
+    return '<div class="statustile">'+
+      '<div class="statustile-head"><span class="statustile-icon statustile-'+readiness.level+'" aria-hidden="true">'+migrationStatusIcon(readiness.level)+'</span>'+
+        '<span class="statustile-name">'+esc(b.label)+'</span></div>'+
+      '<span class="badge '+readinessBadgeClass(readiness.level)+'">'+esc(readiness.label)+'</span>'+
+      '<div class="hint" style="margin-top:8px">'+sessionCount+'/'+expected+' session'+(expected===1?'':'s')+' logged</div>'+
+    '</div>';
+  }
+
   function statTile(label,value,sub,colorVar){
     return '<div class="stat-tile shadow-sm hover:shadow-md transition-shadow duration-300">'+
       '<div class="stat-accent" style="background:var('+colorVar+')"></div>'+
@@ -1795,17 +1877,18 @@ function bootApp(storageConfigured){
   async function loadReport(){
     const body=document.getElementById('reportbody');
     body.innerHTML='<p class="sub">Loading…</p>';
-    const [sessionsRes,featuresRes]=await Promise.all([api('/api/sessions'),api('/api/features')]);
+    const [sessionsRes,featuresRes,batchesRes]=await Promise.all([api('/api/sessions'),api('/api/features'),api('/api/migration-batches')]);
     if(!sessionsRes.ok){
       body.innerHTML='<div class="err-box">'+esc(sessionsRes.body.error||'Could not load sessions.')+'</div>';
       return;
     }
     const index=sessionsRes.body.items||[];
     const features=(featuresRes.ok && featuresRes.body.items) || [];
-    renderReport(index,features);
+    const batchRoster=(batchesRes.ok && batchesRes.body.items) || BATCHES.map(function(b){ return Object.assign({clients:[],targetDate:null},b); });
+    renderReport(index,features,batchRoster);
   }
 
-  function renderReport(index,features){
+  function renderReport(index,features,batchRoster){
     const body=document.getElementById('reportbody');
 
     const totalTarget=MODULES.length*SESSION_TARGET_PER_MODULE;
@@ -1818,6 +1901,14 @@ function bootApp(storageConfigured){
       const g=groupFeatures(features.filter(function(f){ return f.module===m.id; }));
       return {module:m,sessionCount:sessionCount,g:g};
     });
+
+    const batchRows=batchRoster.map(function(b){
+      const sessions=index.filter(function(s){ return s.track==='migration-readiness' && s.batch===b.id; });
+      const expected=Math.max(b.clients.filter(Boolean).length,1);
+      return {batch:b,sessionCount:sessions.length,expected:expected,readiness:rollupBatchReadiness(sessions,expected)};
+    });
+    const levelCounts={green:0,amber:0,red:0,grey:0};
+    batchRows.forEach(function(r){ levelCounts[r.readiness.level]=(levelCounts[r.readiness.level]||0)+1; });
 
     body.innerHTML=
       '<div class="stat-grid">'+
@@ -1842,7 +1933,16 @@ function bootApp(storageConfigured){
       '</div>'+
       '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>By session type</h3>'+
         hbarLegend()+
-        '<div class="hbar-rows">'+rows.map(function(r){ return hbarRow(r.module.label, r.g); }).join('')+'</div>'+
+        '<div class="modreport-grid">'+rows.map(function(r){ return moduleReportCard(r.module,r.sessionCount,r.g); }).join('')+'</div>'+
+      '</div>'+
+      '<div class="panel shadow-sm hover:shadow-md transition-shadow duration-300"><h3>Migration readiness</h3>'+
+        '<div class="statussummary">'+
+          '<span><span class="statustile-icon statustile-green" aria-hidden="true">'+migrationStatusIcon('green')+'</span>'+levelCounts.green+' ready</span>'+
+          '<span><span class="statustile-icon statustile-amber" aria-hidden="true">'+migrationStatusIcon('amber')+'</span>'+levelCounts.amber+' minor concerns</span>'+
+          '<span><span class="statustile-icon statustile-red" aria-hidden="true">'+migrationStatusIcon('red')+'</span>'+levelCounts.red+' at risk</span>'+
+          '<span><span class="statustile-icon statustile-grey" aria-hidden="true">'+migrationStatusIcon('grey')+'</span>'+levelCounts.grey+' not yet assessed</span>'+
+        '</div>'+
+        '<div class="statusgrid">'+batchRows.map(function(r){ return migrationStatusTile(r.batch,r.readiness,r.sessionCount,r.expected); }).join('')+'</div>'+
       '</div>'+
       '<p class="hint">Generated '+esc(fmtDateTime(new Date().toISOString()))+'. Sessions held counts every logged session regardless of analysis status; feature counts reflect the live roadmap board right now, including any bucket moves, owner assignments, or completions — nothing here waits for a rebuild.</p>';
   }

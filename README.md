@@ -252,11 +252,18 @@ everything else (sign-in, navigation, forms) still works.
 9. **Reports** (top nav) is the monthly board pack, led with three hero stat tiles (sessions held,
    features logged, complete), a progress ring for sessions held toward the
    10-per-session-type goal, and a donut chart for the overall Launch/Phase 2/Future Considerations
-   mix — all backed by the same detailed, precise stacked-bar breakdown per module underneath (the
-   donut and ring are an at-a-glance summary layered on top of that data, not a replacement for it).
-   **Print / save as PDF** hides the nav and buttons for a clean printout. Feature data is live — it
-   reflects the current board (any bucket move, module move, owner, or completion) at the moment you
-   open the tab, not a snapshot from the last trend build.
+   mix. **By session type** is a grid of per-module cards — not a list of bars with a trailing text
+   line — each a self-contained small multiple: total features, the same stage breakdown bar/colors
+   as everywhere else in the app, and a requirements-done progress bar with its own count/percentage,
+   so every number a module needs is visible without hovering (built this way specifically so the
+   grid reads correctly in a cropped screenshot for the exec board pack). **Migration readiness** is
+   a status overview of all 8 batches — a summary line of how many are ready/minor concerns/at
+   risk/not yet assessed, then one tile per batch with a status icon, the same green/amber/red/grey
+   badge used on the Migration Readiness tab, and its session progress — grey across the board until
+   real sessions are logged and analyzed, filling in batch by batch from there. **Print / save as
+   PDF** hides the nav and buttons for a clean printout. All of this is live — it reflects the
+   current roadmap board and migration batches (any bucket move, module move, owner, completion, or
+   newly-analyzed session) at the moment you open the tab, not a snapshot from the last trend build.
 
 **Managed client list, not free text.** ~10 clients are each expected to generate many sessions over
 the program, so — same reasoning as the fixed module list — clients are chosen from a small managed
