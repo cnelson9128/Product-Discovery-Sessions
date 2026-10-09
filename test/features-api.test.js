@@ -55,6 +55,34 @@ test('applyPatch preserves prior history entries', function () {
   assert.equal(out.moduleHistory[1].to, 'pay-bill');
 });
 
+test('applyPatch marks requirementsDone true whenever complete is set true', function () {
+  const feature = { module: 'search-match', complete: false, requirementsDone: false };
+  const out = applyPatch(feature, { complete: true });
+  assert.equal(out.complete, true);
+  assert.equal(out.requirementsDone, true);
+});
+
+test('applyPatch overrides an explicit requirementsDone:false in the same patch when complete is true', function () {
+  // Shouldn't happen from the UI (they're separate controls), but the
+  // invariant is "complete implies done," not "whichever came last wins."
+  const feature = { module: 'search-match', complete: false, requirementsDone: false };
+  const out = applyPatch(feature, { complete: true, requirementsDone: false });
+  assert.equal(out.requirementsDone, true);
+});
+
+test('applyPatch does not touch requirementsDone when reopening a completed feature', function () {
+  const feature = { module: 'search-match', complete: true, requirementsDone: true };
+  const out = applyPatch(feature, { complete: false });
+  assert.equal(out.complete, false);
+  assert.equal(out.requirementsDone, undefined, 'reopening does not un-mark requirements as done');
+});
+
+test('applyPatch leaves requirementsDone alone on a requirementsDone-only patch', function () {
+  const feature = { module: 'search-match', complete: false, requirementsDone: false };
+  const out = applyPatch(feature, { requirementsDone: true });
+  assert.deepEqual(out, { requirementsDone: true });
+});
+
 test('toRestoredFields maps a classification result onto feature field names', function () {
   const restored = toRestoredFields({
     primary_module: 'pay-bill',

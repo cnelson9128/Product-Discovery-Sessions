@@ -335,6 +335,8 @@ api/             serverless functions (zero-config, picked up by Vercel)
   admin-reclassify-features.js  one-time (but re-runnable), idempotent: backfills raisedItems for
                           sessions analyzed before content-based classification shipped, and
                           reclassifies legacy feature cards — longer maxDuration, see "Upgrading" below
+  admin-backfill-requirements-done.js  one-time, idempotent: corrects any feature that's `complete`
+                          but predates the complete-implies-requirementsDone rule — see "Upgrading" below
 lib/             never served over HTTP
   auth.js              HMAC session tokens, constant-time password check, single shared password
   store.js             Redis REST access — sessions, clients, roadmap features, module trends, the
@@ -384,7 +386,7 @@ IP — 10 in 15 minutes — when Redis is linked.
 | `pds:session:<id>` | One session's full record: metadata, transcript, the 11-question `analysis` (both tracks), the separate `raisedItems` extraction (every feature/problem/request/opportunity found in the transcript, each pre-classified into its module — both tracks), and — migration-readiness sessions only — `migrationRisk` (readiness verdict, risk areas, blockers, target-date feasibility) and `plannedMigrationDate` (optional, per-session — independent of the batch's own `targetDate` in `pds:migration:roster`, since the batch's two locked clients can land on different actual dates). Fetched only when that session's detail view is opened, when building a module's narrative trend, or when syncing feature cards. |
 | `pds:clients` | A JSON array of managed client names — the product-discovery track's roster. |
 | `pds:migration:roster` | The migration-readiness track's roster: `{ [batchId]: { clients: [name1, name2], targetDate } }`. Editable per batch on that batch's page; the 8 batch ids/labels/descriptions themselves are fixed in `lib/batches.js`, same as `lib/modules.js`. |
-| `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, secondaryModules, confidence, classificationReason, item, rationale, evidenceQuote, supporting_session_ids, sourceSessionId, sourceItemKey}` (model-authored/classified, only `module` user-editable — see below) plus `{bucket, owner, complete, requirementsDone}` (fully user-editable via `api/features.js`), `isManualModule`/`moduleHistory` (set when a human moves `module` by hand — see "Manual overrides" below), and `createdAt`/`updatedAt`. `sourceSessionId`+`sourceItemKey` (`` `${sessionId}#${itemIndex}` ``) link a card back to the exact extracted item it came from, so re-analyzing that session updates the same card rather than duplicating it. |
+| `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, secondaryModules, confidence, classificationReason, item, rationale, evidenceQuote, supporting_session_ids, sourceSessionId, sourceItemKey}` (model-authored/classified, only `module` user-editable — see below) plus `{bucket, owner, complete, requirementsDone}` (fully user-editable via `api/features.js` — marking a card `complete` also marks `requirementsDone`, a one-way rule: a feature can't be complete without its requirements already having been done, but reopening a completed feature doesn't un-mark that), `isManualModule`/`moduleHistory` (set when a human moves `module` by hand — see "Manual overrides" below), and `createdAt`/`updatedAt`. `sourceSessionId`+`sourceItemKey` (`` `${sessionId}#${itemIndex}` ``) link a card back to the exact extracted item it came from, so re-analyzing that session updates the same card rather than duplicating it. |
 | `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, and the synthesized result — `overview_summary`, `value_moments` (the "wow" quotes, each citing exactly one session id), `adoption_blockers`, `gtm_messaging`. No longer holds feature cards or counts — those live in `pds:feature:index` now and are computed live wherever they're needed. |
 | `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |
 
@@ -412,6 +414,17 @@ refreshes, since that's the parser's read of what was said, not a classification
 **📌 Manual** button appears on the card; clicking it (`resetClassification`) hands it back to the
 parser — recomputed instantly from the session's already-stored classification when the card is
 linked to one, or via one small reclassification call for a legacy card that isn't.
+
+## Upgrading from before the complete-implies-requirements-done rule
+
+A feature can't genuinely be complete without its requirements already having been done, so
+`api/features.js` now marks `requirementsDone` true automatically whenever a card is marked
+`complete` (reopening a completed card doesn't un-mark it). That rule only applies going forward —
+any card already marked complete before this shipped may still show `requirementsDone: false`. Hit
+`POST /api/admin-backfill-requirements-done` once after deploying — from a signed-in browser
+console, or `curl -b <your session cookie> https://<domain>/api/admin-backfill-requirements-done
+-X POST` — to correct every existing complete-but-unflagged card in one pass. It's idempotent —
+safe to run more than once, and a true no-op once nothing is left to correct.
 
 ## Upgrading from before content-based classification
 

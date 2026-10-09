@@ -118,8 +118,12 @@ function validatePatch(body) {
 
 /* Pure — no store access, so this is what tests exercise directly. Given a
    validated patch and the feature it'll be applied to, returns the fields to
-   actually merge: unchanged unless the patch moves `module`, in which case it
-   adds the manual-override flag and audit-trail entry. */
+   actually merge: unchanged unless the patch moves `module` (adds the
+   manual-override flag and audit-trail entry), or marks the feature
+   `complete` (a feature can't be complete without its requirements already
+   having been done, so completing one also marks requirementsDone — a
+   one-way rule: reopening a completed feature does not un-mark it, since
+   the requirements genuinely were done at some point). */
 function applyPatch(feature, patchOut) {
   const out = Object.assign({}, patchOut);
   if (out.module !== undefined && out.module !== feature.module) {
@@ -127,6 +131,9 @@ function applyPatch(feature, patchOut) {
     history.push({ at: new Date().toISOString(), from: feature.module, to: out.module });
     out.moduleHistory = history;
     out.isManualModule = true;
+  }
+  if (out.complete === true) {
+    out.requirementsDone = true;
   }
   return out;
 }
