@@ -41,3 +41,20 @@ test('buildClassificationRulesText covers every classifiable module and the key 
   assert.ok(text.includes('ai-automation'), 'AI-as-primary-vs-secondary rule present');
   assert.ok(text.includes('analytics-reporting'), 'reporting-about-another-module rule present');
 });
+
+test('marketing is a classifiable module, split out from the old combined business-development-marketing one', function () {
+  assert.ok(moduleClassification.CLASSIFIABLE_MODULE_IDS.includes('marketing'));
+  assert.ok(moduleClassification.CLASSIFIABLE_MODULE_IDS.includes('business-development-marketing'));
+  assert.equal(modules.labelFor('business-development-marketing'), 'Business Development');
+  assert.equal(modules.labelFor('marketing'), 'Marketing');
+});
+
+test('business-development-marketing vs. marketing boundary is audience-based (client/commercial vs. candidate), not mechanism-based', function () {
+  const text = moduleClassification.buildClassificationRulesText();
+  assert.ok(/candidate/i.test(text) && /marketing/i.test(text), 'candidate-facing framing present for marketing');
+  assert.ok(text.includes('business-development-marketing') && text.includes('marketing'), 'both ids present for the boundary rule to disambiguate');
+  // The old module's rules should no longer claim candidate marketing/campaigns —
+  // that content moved to the new module.
+  const bdSection = text.split('Marketing (')[0];
+  assert.ok(!/candidate marketing/i.test(bdSection), 'candidate marketing language should live under the new marketing module, not the old combined one');
+});

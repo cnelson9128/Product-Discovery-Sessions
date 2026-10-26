@@ -1,9 +1,10 @@
 # Firefish Product Discovery Sessions — internal hosting
 
 An internal tool on Vercel supporting Firefish's v2 product-discovery research program: roughly 10
-clients, ~100 sessions over 8-10 weeks, each session tagged to one of 11 fixed session types (10
-specific v2 product modules plus a general Introduction Session), each asking the same 11 standard
-validation questions (today's process, value created, who benefits,
+clients, ~100 sessions over 8-10 weeks, each session tagged to one of 12 fixed session types (11
+specific v2 product modules — including Business Development and Marketing as two separate modules,
+split from an original combined one, see "Upgrading" below — plus a general Introduction Session),
+each asking the same 11 standard validation questions (today's process, value created, who benefits,
 adoption blockers, v1 vs v2, trust concerns, migration blockers/conditions, top priority
 improvement, success metric, one-sentence pitch). Every session's transcript is analyzed into
 structured answers to those 11 questions, and once a module has multiple analyzed sessions its
@@ -176,7 +177,7 @@ everything else (sign-in, navigation, forms) still works.
 ## How to use it
 
 1. **+ New session** — pick the client from the managed list (or add a new one inline — see below),
-   who ran the interview, which of the 11 session types the call was about, the date, and optionally who
+   who ran the interview, which of the 12 session types the call was about, the date, and optionally who
    was on the call. Paste the transcript, or upload a `.txt`/`.docx` file — either way you can review
    and edit the text before submitting.
 2. Submitting creates the session and kicks off analysis immediately; the detail page opens into a
@@ -206,7 +207,7 @@ everything else (sign-in, navigation, forms) still works.
    problem, or request raised in these sessions is classified and lands on the same roadmap board as
    product-discovery sessions (see below); Quote Wall and Go-to-Market messaging stay
    product-discovery-only.
-6. **Modules** (top nav) lists all 11 session types with their analyzed/total session counts and
+6. **Modules** (top nav) lists all 12 session types with their analyzed/total session counts and
    trend status. Each module's page always shows its **feature prioritization** board — one card per
    feature, sorted into **Launch** / **Phase 2** / **Future Considerations** — independent of whether
    a trend has ever been built for it. That's because cards aren't sourced from a per-module build
@@ -345,11 +346,14 @@ api/             serverless functions (zero-config, picked up by Vercel)
                           reclassifies legacy feature cards — longer maxDuration, see "Upgrading" below
   admin-backfill-requirements-done.js  one-time, idempotent: corrects any feature that's `complete`
                           but predates the complete-implies-requirementsDone rule — see "Upgrading" below
+  admin-split-marketing-module.js  one-time (re-runnable), safe to re-run: moves marketing-centric
+                          cards/raised-items out of the old combined Business Development & Marketing
+                          module into the new Marketing module — longer maxDuration, see "Upgrading" below
 lib/             never served over HTTP
   auth.js              HMAC session tokens, constant-time password check, single shared password
   store.js             Redis REST access — sessions, clients, roadmap features, module trends, the
                        migration-batch roster, the gtm record, login throttling
-  modules.js            the 11 fixed session types (id + label) and validation
+  modules.js            the 12 fixed session types (id + label) and validation
   batches.js             the 8 fixed migration batches (id + label + description) and validation —
                           same "permanent program structure, hardcoded" reasoning as modules.js
   analysis.js           builds the per-session 11-question analysis prompt
@@ -422,6 +426,22 @@ refreshes, since that's the parser's read of what was said, not a classification
 **📌 Manual** button appears on the card; clicking it (`resetClassification`) hands it back to the
 parser — recomputed instantly from the session's already-stored classification when the card is
 linked to one, or via one small reclassification call for a legacy card that isn't.
+
+## Upgrading from before the Business Development / Marketing split
+
+Business Development & Marketing used to be one combined module; it's now two — the original id
+(`business-development-marketing`) is narrowed to Business Development only (sequencing, opportunity
+discovery, leads, contacts — client/commercial-facing), and a new `marketing` module covers candidate
+marketing, campaigns, and acquisition (candidate-facing). No existing session or feature was touched
+by that split alone — every session/card already tagged to the old id keeps working exactly as
+before, since the id didn't change, only its label and the content rules applied to it. What's
+genuinely marketing-centric among the *existing* cards/raised-items filed under that module, though,
+needs to actually move. Hit `POST /api/admin-split-marketing-module` once after deploying — from a
+signed-in browser console, or `curl -b <your session cookie>
+https://<domain>/api/admin-split-marketing-module -X POST` — to run that reclassification. A
+manually-moved card (`isManualModule`) is never touched. It's safe to re-run, though not a strict
+no-op: a card/item that's still genuinely Business Development gets asked again on a later run
+rather than skipped outright (a small, bounded cost, not a bug).
 
 ## Upgrading from before the complete-implies-requirements-done rule
 
