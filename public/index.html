@@ -314,6 +314,29 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
     -webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 
+/* Sentiment report — rendered as discrete "slides," one per printed page, so
+   Print/PDF produces a deck-ready export; on screen they're just a vertical
+   stack of full-width panels. */
+.slide{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;
+  margin-bottom:20px;min-height:260px}
+.slide-eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);
+  font-weight:700;margin-bottom:10px}
+.slide-headline{margin:0 0 20px;font-size:32px;font-weight:800;letter-spacing:-.01em}
+.slide-title{text-align:center}
+.slide-title .slide-eyebrow{text-align:center}
+.slide-stat-row{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin:20px 0}
+.slide-stat-row .stat-tile{min-width:180px;text-align:left}
+.sentiment-hero{text-align:center;margin:10px 0 20px}
+.badge-lg{font-size:16px;padding:8px 20px;border-radius:999px;font-weight:800}
+.slide-narrative{font-size:17px;line-height:1.6;max-width:760px;margin:0 auto}
+.sentiment-tile{text-align:left}
+.sentiment-tile .statustile-name{margin-bottom:6px}
+@media print{
+  .slide{break-inside:avoid;break-after:page;border:1px solid #ccc;box-shadow:none}
+  .slide:last-child{break-after:auto}
+  .badge-lg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
 .stat-tile{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);
   border-radius:14px;padding:18px 18px 16px}
@@ -376,6 +399,7 @@ try{var _t=localStorage.getItem('pds-theme');
       <a href="#quotes" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-quotes">Quote Wall</a>
       <a href="#gtm" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-gtm">Go-to-Market</a>
       <a href="#report" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-report">Reports</a>
+      <a href="#sentiment" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="nav-sentiment">Sentiment Report</a>
       <span id="storagewarn" class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" style="display:none;border-color:var(--crit-ink);color:var(--crit-ink)" title="No storage linked — nothing will save">Storage not linked</span>
       <button class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="theme">Dark</button>
       <button class="tbtn transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" id="signout">Sign out</button>
@@ -547,6 +571,21 @@ try{var _t=localStorage.getItem('pds-theme');
       <button type="button" class="btn ghost printbtn transition-all duration-150 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0" id="printreportbtn">Print / save as PDF</button>
     </div>
     <div id="reportbody"></div>
+  </section>
+
+  <section id="view-sentiment" hidden>
+    <div class="reporthead">
+      <div>
+        <h2 class="ph">Sentiment report</h2>
+        <p class="sub">A company-wide read on v2 sentiment from every analyzed Product Discovery
+          session — built to present from or print into a deck, one slide per section below.</p>
+      </div>
+      <div class="dactions" style="gap:8px">
+        <button type="button" class="btn transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]" id="buildsentimentbtn">Build / Refresh</button>
+        <button type="button" class="btn ghost printbtn transition-all duration-150 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0" id="printsentimentbtn">Print / save as PDF</button>
+      </div>
+    </div>
+    <div id="sentimentbody"></div>
   </section>
 
 </main>
@@ -783,7 +822,8 @@ function bootApp(storageConfigured){
     moduledetail:document.getElementById('view-module-detail'),
     quotewall:document.getElementById('view-quotewall'),
     gtm:document.getElementById('view-gtm'),
-    report:document.getElementById('view-report')
+    report:document.getElementById('view-report'),
+    sentiment:document.getElementById('view-sentiment')
   };
   function showView(name){
     Object.keys(views).forEach(function(k){ views[k].hidden = k!==name; });
@@ -793,14 +833,18 @@ function bootApp(storageConfigured){
     document.getElementById('nav-quotes').classList.toggle('active', name==='quotewall');
     document.getElementById('nav-gtm').classList.toggle('active', name==='gtm');
     document.getElementById('nav-report').classList.toggle('active', name==='report');
+    document.getElementById('nav-sentiment').classList.toggle('active', name==='sentiment');
   }
 
   async function go(){
-    const hash=location.hash.slice(1); // '', 'sessions', 'sessions/new', 'sessions/<id>', 'migration', 'migration/<batchId>', 'migration/<batchId>/new', 'modules', 'modules/<slug>', 'quotes', 'gtm', 'report'
+    const hash=location.hash.slice(1); // '', 'sessions', 'sessions/new', 'sessions/<id>', 'migration', 'migration/<batchId>', 'migration/<batchId>/new', 'modules', 'modules/<slug>', 'quotes', 'gtm', 'report', 'sentiment'
     const parts=hash.split('/').filter(Boolean);
     if(parts[0]==='report'){
       showView('report');
       await loadReport();
+    }else if(parts[0]==='sentiment'){
+      showView('sentiment');
+      await loadSentimentReport();
     }else if(parts[0]==='quotes'){
       showView('quotewall');
       await loadQuoteWall();
@@ -1741,6 +1785,112 @@ function bootApp(storageConfigured){
       await loadGtm();
     });
   }
+
+  /* ---- sentiment report ---- */
+  const SENTIMENT_LABELS={strongly_positive:'Strongly Positive',positive:'Positive',mixed:'Mixed',
+    needs_attention:'Needs Attention',not_enough_signal:'Not Enough Signal Yet'};
+  function sentimentLabel(level){ return SENTIMENT_LABELS[level]||level; }
+  function sentimentBadgeClass(level){
+    return {strongly_positive:'ready',positive:'ready',mixed:'stale',needs_attention:'error',not_enough_signal:'draft'}[level]||'draft';
+  }
+
+  async function loadSentimentReport(){
+    const body=document.getElementById('sentimentbody');
+    body.innerHTML='<p class="sub">Loading…</p>';
+    const [reportRes,sessionsRes]=await Promise.all([api('/api/sentiment-report'),api('/api/sessions')]);
+    if(!reportRes.ok){
+      body.innerHTML='<div class="err-box">'+esc(reportRes.body.error||'Could not load the sentiment report.')+'</div>';
+      return;
+    }
+    /* Product Discovery only — migration-readiness sessions don't feed this
+       report (see lib/sentiment-report.js's header). */
+    const index=((sessionsRes.ok && sessionsRes.body.items) || []).filter(function(s){ return (s.track||'discovery')!=='migration-readiness'; });
+    renderSentimentReport(reportRes.body.item, index);
+  }
+
+  function renderSentimentReport(report, index){
+    const body=document.getElementById('sentimentbody');
+    const readyIds=index.filter(function(s){ return s.status==='ready'; }).map(function(s){ return s.id; });
+    const st=staleness(report, readyIds);
+    const moduleCount=new Set(index.map(function(s){ return s.module; })).size;
+
+    let errBlock='';
+    if(report && report.status==='error' && report.lastError){
+      errBlock='<div class="errpanel">Build failed: '+esc(report.lastError)+
+        (report.lastErrorAt?'<div class="code">'+esc(fmtDateTime(report.lastErrorAt))+'</div>':'')+'</div>';
+    }
+
+    let content;
+    if(!report || !report.result){
+      content='<div class="empty">Not built yet — analyze at least one Product Discovery session, then click Build / Refresh above.</div>';
+    }else{
+      const r=report.result;
+      const warn=report.sessionCountAtBuild<3
+        ? '<div class="warnpanel">Built from only '+report.sessionCountAtBuild+' session'+(report.sessionCountAtBuild===1?'':'s')+' — treat this as an early signal, not a settled read.</div>'
+        : '';
+
+      const titleSlide=
+        '<div class="slide slide-title">'+
+          '<div class="slide-eyebrow">Firefish Software &middot; v2 Product Discovery</div>'+
+          '<h2 class="slide-headline">Sentiment Report</h2>'+
+          '<div class="slide-stat-row">'+
+            statTile('Sessions analyzed', report.sessionCountAtBuild, 'feeding this report', '--accent')+
+            statTile('Session types covered', moduleCount, 'with at least one session', '--bucket-launch-solid')+
+          '</div>'+
+          '<p class="hint">Generated '+esc(fmtDateTime(report.builtAt))+'</p>'+
+        '</div>';
+
+      const overallSlide=
+        '<div class="slide">'+
+          '<div class="slide-eyebrow">Overall direction</div>'+
+          '<div class="sentiment-hero"><span class="badge badge-lg '+sentimentBadgeClass(r.overall_sentiment)+'">'+esc(sentimentLabel(r.overall_sentiment))+'</span></div>'+
+          '<p class="summary-text slide-narrative">'+esc(r.overall_narrative)+'</p>'+
+        '</div>';
+
+      const headlineSlide=
+        '<div class="slide">'+
+          '<div class="slide-eyebrow">Headline statements</div>'+
+          (r.headline_statements.length
+            ? '<div class="quote-grid">'+r.headline_statements.map(function(h){
+                return quoteCard(h.quote, h.theme, chips(h.supporting_session_ids,index));
+              }).join('')+'</div>'
+            : '<p class="sub">No standout "wow" moments surfaced yet.</p>')+
+        '</div>';
+
+      const moduleSlide=
+        '<div class="slide">'+
+          '<div class="slide-eyebrow">By session type</div>'+
+          (r.module_breakdown.length
+            ? '<div class="statusgrid">'+r.module_breakdown.map(function(m){
+                return '<div class="statustile sentiment-tile">'+
+                  '<div class="statustile-name">'+esc(moduleLabel(m.module))+'</div>'+
+                  '<span class="badge '+sentimentBadgeClass(m.sentiment)+'">'+esc(sentimentLabel(m.sentiment))+'</span>'+
+                  '<p class="hint" style="margin-top:8px;text-align:left">'+esc(m.summary)+'</p>'+
+                  chips(m.supporting_session_ids,index)+
+                '</div>';
+              }).join('')+'</div>'
+            : '<p class="sub">Not enough analyzed sessions yet to break this down by session type.</p>')+
+        '</div>';
+
+      content=warn+titleSlide+overallSlide+headlineSlide+moduleSlide;
+    }
+
+    body.innerHTML=
+      '<div class="subline" style="margin-bottom:14px"><span class="badge '+st.cls+'">'+esc(st.label)+'</span>'+
+        (report&&report.builtAt?' &middot; Last built '+esc(fmtDateTime(report.builtAt))+' from '+report.sessionCountAtBuild+' session'+(report.sessionCountAtBuild===1?'':'s'):'')+
+      '</div>'+
+      errBlock+content;
+  }
+
+  document.getElementById('buildsentimentbtn').addEventListener('click',async function(){
+    const btn=this;
+    btn.disabled=true; btn.textContent='Building…';
+    const res=await api('/api/sentiment-report-build',{method:'POST'});
+    if(!res.ok){ alert(res.body.error||'Could not build the sentiment report.'); }
+    btn.disabled=false; btn.textContent='Build / Refresh';
+    await loadSentimentReport();
+  });
+  document.getElementById('printsentimentbtn').addEventListener('click',function(){ window.print(); });
 
   /* ---- quote wall ---- */
   async function loadQuoteWall(){

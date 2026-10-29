@@ -256,7 +256,17 @@ everything else (sign-in, navigation, forms) still works.
    highlight per module that has enough signal to support one — each grounded across more than one
    customer or module, so a single session's one-off comment shows up in that module's own trend
    rather than here.
-9. **Reports** (top nav) is the monthly board pack, led with three hero stat tiles (sessions held,
+9. **Sentiment Report** (top nav) is built for an all-company presentation on v2 sentiment, from
+   Product Discovery sessions only (migration-readiness sessions feed the roadmap board but not this
+   report — see Migration Readiness above). **Build / Refresh** synthesizes an honest overall
+   sentiment verdict and narrative ("where sentiment sits and what's driving it," weighed against
+   trust concerns and adoption blockers, not rounded up for the audience), the standout headline
+   positive statements (same one-person-per-item shape as a module trend's "wow" quotes), and a
+   sentiment breakdown per session type that has enough signal to say something real about. It renders
+   as a sequence of full-width "slides" — session counts, overall sentiment, headline quotes, the
+   per-session-type grid — each printing to its own page via **Print / save as PDF**, so the export is
+   deck-ready to drop straight into a presentation.
+10. **Reports** (top nav) is the monthly board pack, led with three hero stat tiles (sessions held,
    features logged, complete), a progress ring for sessions held toward the
    10-per-session-type goal, and a donut chart for the overall Launch/Phase 2/Future Considerations
    mix. **By session type** is a grid of per-module cards (10 real product modules — Introduction
@@ -338,6 +348,9 @@ api/             serverless functions (zero-config, picked up by Vercel)
   quote-wall.js           every module's "wow" quotes in one response (GET) — session required
   gtm-messaging.js        overall go-to-market record (GET) — session required
   gtm-messaging-build.js  (re)builds it from every analyzed session across all modules — longer maxDuration
+  sentiment-report.js        the sentiment report record (GET) — session required
+  sentiment-report-build.js  (re)builds it from every analyzed Product Discovery session (migration-
+                          readiness excluded) — longer maxDuration
   parse-transcript.js     .docx -> plain text via mammoth — session required
   admin-migrate-features.js  one-time, idempotent: migrates any pre-upgrade trend's embedded cards
                           into pds:feature:index — see "Upgrading" below
@@ -374,6 +387,9 @@ lib/             never served over HTTP
   module-trends.js       builds the per-module narrative trend synthesis prompt (overview, "wow"
                           quotes, adoption blockers, GTM messaging) — no longer touches feature cards
   gtm-messaging.js        builds the overall, cross-module go-to-market synthesis prompt
+  sentiment-report.js     builds the company-wide sentiment-report prompt — overall direction,
+                          headline positive statements, per-session-type sentiment breakdown —
+                          from Product Discovery sessions only
   anthropic-client.js    shared streaming call + error handling, used by every prompt file above
 vercel.json      static root, security headers, every long-running build endpoint's maxDuration
 test/            node --test suite (`npm test`) — feature classification/sync, the features API's
@@ -401,6 +417,7 @@ IP — 10 in 15 minutes — when Redis is linked.
 | `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, secondaryModules, confidence, classificationReason, item, rationale, evidenceQuote, supporting_session_ids, sourceSessionId, sourceItemKey}` (model-authored/classified, only `module` user-editable — see below) plus `{bucket, owner, complete, requirementsDone}` (fully user-editable via `api/features.js` — marking a card `complete` also marks `requirementsDone`, a one-way rule: a feature can't be complete without its requirements already having been done, but reopening a completed feature doesn't un-mark that), `isManualModule`/`moduleHistory` (set when a human moves `module` by hand — see "Manual overrides" below), and `createdAt`/`updatedAt`. `sourceSessionId`+`sourceItemKey` (`` `${sessionId}#${itemIndex}` ``) link a card back to the exact extracted item it came from, so re-analyzing that session updates the same card rather than duplicating it. |
 | `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, and the synthesized result — `overview_summary`, `value_moments` (the "wow" quotes, each citing exactly one session id), `adoption_blockers`, `gtm_messaging`. No longer holds feature cards or counts — those live in `pds:feature:index` now and are computed live wherever they're needed. |
 | `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |
+| `pds:sentiment-report` | The one sentiment report record: same shape/staleness convention as the gtm record, but scoped to Product Discovery sessions only — `overall_sentiment`/`overall_narrative`, `headline_statements` (one person's reaction each, same shape as a module trend's `value_moments`), and `module_breakdown` (one sentiment verdict + summary per session type with enough signal). |
 
 Two Redis keys per session (index + full record), not one blob: transcripts can run to tens of
 thousands of characters, and a dashboard that had to read every transcript just to list rows would
