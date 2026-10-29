@@ -317,24 +317,51 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 /* Sentiment report — rendered as discrete "slides," one per printed page, so
    Print/PDF produces a deck-ready export; on screen they're just a vertical
    stack of full-width panels. */
-.slide{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;
-  margin-bottom:20px;min-height:260px}
+.slide{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:40px;
+  margin-bottom:20px;min-height:260px;box-shadow:0 1px 3px rgba(16,20,30,.06)}
 .slide-eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);
-  font-weight:700;margin-bottom:10px}
-.slide-headline{margin:0 0 20px;font-size:32px;font-weight:800;letter-spacing:-.01em}
-.slide-title{text-align:center}
-.slide-title .slide-eyebrow{text-align:center}
-.slide-stat-row{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin:20px 0}
-.slide-stat-row .stat-tile{min-width:180px;text-align:left}
-.sentiment-hero{text-align:center;margin:10px 0 20px}
-.badge-lg{font-size:16px;padding:8px 20px;border-radius:999px;font-weight:800}
-.slide-narrative{font-size:17px;line-height:1.6;max-width:760px;margin:0 auto}
-.sentiment-tile{text-align:left}
-.sentiment-tile .statustile-name{margin-bottom:6px}
+  font-weight:700;margin-bottom:14px}
+.slide-headline{margin:0 0 24px;font-size:34px;font-weight:800;letter-spacing:-.01em}
+
+/* Title slide — a colored gradient band (the same accent/launch colors used
+   everywhere else in the app) so the deck opens on something with visual
+   weight, not just another bordered panel. */
+.slide-title{text-align:center;border:none;background:linear-gradient(135deg,var(--accent),var(--bucket-launch-solid));color:#fff}
+.slide-title .slide-eyebrow{text-align:center;color:rgba(255,255,255,.75)}
+.slide-title .slide-headline{color:#fff;font-size:42px}
+.slide-title .hint{color:rgba(255,255,255,.7)}
+.slide-stat-row{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin:24px 0}
+.slide-stat-row .stat-tile{min-width:180px;text-align:left;background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3)}
+.slide-stat-row .stat-tile .stat-label{color:rgba(255,255,255,.75)}
+.slide-stat-row .stat-tile .stat-value{color:#fff}
+.slide-stat-row .stat-tile .stat-sub{color:rgba(255,255,255,.7)}
+
+/* Overall-sentiment slide — a large icon badge reads at a glance, from the
+   back of a room, better than a small pill ever could. */
+.sentiment-hero{text-align:center;margin:4px 0 24px}
+.sentiment-badge-ring{width:92px;height:92px;border-radius:999px;display:flex;align-items:center;
+  justify-content:center;margin:0 auto 14px;font-size:38px;font-weight:800;line-height:1}
+.sentiment-badge-ring.ready{background:var(--ok-bg);color:var(--ok-ink)}
+.sentiment-badge-ring.stale{background:var(--warn-bg);color:var(--warn-ink)}
+.sentiment-badge-ring.error{background:var(--crit-bg);color:var(--crit-ink)}
+.sentiment-badge-ring.draft{background:var(--draft-bg);color:var(--draft-ink)}
+.sentiment-badge-label{font-size:20px;font-weight:800}
+.slide-narrative{font-size:17px;line-height:1.65;max-width:720px;margin:0 auto;text-align:center}
+
+/* By-session-type breakdown — compact rows, not a grid of large tiles: a
+   colored left accent plus module/badge/summary on one line each, so a
+   dozen session types stay scannable on one slide instead of sprawling. */
+.sentiment-rows{display:flex;flex-direction:column;gap:10px}
+.sentiment-row{background:var(--panel);border:1px solid var(--line);border-left-width:4px;
+  border-radius:10px;padding:12px 16px}
+.sentiment-row-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.sentiment-row-module{font-weight:700;font-size:14px}
+.sentiment-row-summary{font-size:13px;color:var(--ink-2);margin:6px 0 0}
+
 @media print{
   .slide{break-inside:avoid;break-after:page;border:1px solid #ccc;box-shadow:none}
   .slide:last-child{break-after:auto}
-  .badge-lg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .slide-title,.sentiment-badge-ring{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
@@ -1793,6 +1820,12 @@ function bootApp(storageConfigured){
   function sentimentBadgeClass(level){
     return {strongly_positive:'ready',positive:'ready',mixed:'stale',needs_attention:'error',not_enough_signal:'draft'}[level]||'draft';
   }
+  function sentimentIcon(level){
+    return {strongly_positive:'★',positive:'✓',mixed:'!',needs_attention:'✕',not_enough_signal:'–'}[level]||'–';
+  }
+  function sentimentAccentVar(level){
+    return {strongly_positive:'--ok-ink',positive:'--ok-ink',mixed:'--warn-ink',needs_attention:'--crit-ink',not_enough_signal:'--draft-ink'}[level]||'--draft-ink';
+  }
 
   async function loadSentimentReport(){
     const body=document.getElementById('sentimentbody');
@@ -1843,7 +1876,10 @@ function bootApp(storageConfigured){
       const overallSlide=
         '<div class="slide">'+
           '<div class="slide-eyebrow">Overall direction</div>'+
-          '<div class="sentiment-hero"><span class="badge badge-lg '+sentimentBadgeClass(r.overall_sentiment)+'">'+esc(sentimentLabel(r.overall_sentiment))+'</span></div>'+
+          '<div class="sentiment-hero">'+
+            '<div class="sentiment-badge-ring '+sentimentBadgeClass(r.overall_sentiment)+'">'+sentimentIcon(r.overall_sentiment)+'</div>'+
+            '<div class="sentiment-badge-label">'+esc(sentimentLabel(r.overall_sentiment))+'</div>'+
+          '</div>'+
           '<p class="summary-text slide-narrative">'+esc(r.overall_narrative)+'</p>'+
         '</div>';
 
@@ -1861,11 +1897,11 @@ function bootApp(storageConfigured){
         '<div class="slide">'+
           '<div class="slide-eyebrow">By session type</div>'+
           (r.module_breakdown.length
-            ? '<div class="statusgrid">'+r.module_breakdown.map(function(m){
-                return '<div class="statustile sentiment-tile">'+
-                  '<div class="statustile-name">'+esc(moduleLabel(m.module))+'</div>'+
-                  '<span class="badge '+sentimentBadgeClass(m.sentiment)+'">'+esc(sentimentLabel(m.sentiment))+'</span>'+
-                  '<p class="hint" style="margin-top:8px;text-align:left">'+esc(m.summary)+'</p>'+
+            ? '<div class="sentiment-rows">'+r.module_breakdown.map(function(m){
+                return '<div class="sentiment-row" style="border-left-color:var('+sentimentAccentVar(m.sentiment)+')">'+
+                  '<div class="sentiment-row-head"><span class="sentiment-row-module">'+esc(moduleLabel(m.module))+'</span>'+
+                    '<span class="badge '+sentimentBadgeClass(m.sentiment)+'">'+esc(sentimentLabel(m.sentiment))+'</span></div>'+
+                  '<p class="sentiment-row-summary">'+esc(m.summary)+'</p>'+
                   chips(m.supporting_session_ids,index)+
                 '</div>';
               }).join('')+'</div>'

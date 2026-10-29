@@ -263,9 +263,13 @@ everything else (sign-in, navigation, forms) still works.
    trust concerns and adoption blockers, not rounded up for the audience), the standout headline
    positive statements (same one-person-per-item shape as a module trend's "wow" quotes), and a
    sentiment breakdown per session type that has enough signal to say something real about. It renders
-   as a sequence of full-width "slides" — session counts, overall sentiment, headline quotes, the
-   per-session-type grid — each printing to its own page via **Print / save as PDF**, so the export is
-   deck-ready to drop straight into a presentation.
+   as a sequence of full-width "slides" — a colored title slide with session counts, a large icon badge
+   for overall sentiment, headline quotes, and a compact colored-accent row per session type — each
+   printing to its own page via **Print / save as PDF**, so the export is deck-ready to drop straight
+   into a presentation. Some clients and specific topics are deliberately kept out of this report
+   entirely (see `lib/sentiment-report.js`'s `EXCLUDED_CLIENT_SUBSTRINGS`/`FORBIDDEN_TERMS`) — a
+   named client's sessions never reach the model at all, and a forbidden term found anywhere in a
+   generated result fails that build outright rather than risk it slipping through.
 10. **Reports** (top nav) is the monthly board pack, led with three hero stat tiles (sessions held,
    features logged, complete), a progress ring for sessions held toward the
    10-per-session-type goal, and a donut chart for the overall Launch/Phase 2/Future Considerations

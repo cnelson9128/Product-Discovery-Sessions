@@ -43,6 +43,12 @@ module.exports = async function handler(req, res) {
   const fullRecords = await Promise.all(readyEntries.map(function (e) { return store.readSession(e.id); }));
   const sessionInputs = fullRecords
     .filter(Boolean)
+    /* Excluded clients (lib/sentiment-report.js's EXCLUDED_CLIENT_SUBSTRINGS)
+       are dropped here, before the model ever sees them — a stronger
+       guarantee than asking the model not to mention them, since it also
+       keeps their sessions from influencing the overall narrative or any
+       module's sentiment verdict. */
+    .filter(function (r) { return !sentimentReport.isExcludedClient(r.customerName); })
     .map(function (r) {
       return {
         sessionId: r.id,
@@ -53,6 +59,10 @@ module.exports = async function handler(req, res) {
         analysis: r.analysis
       };
     });
+
+  if (!sessionInputs.length) {
+    return res.status(400).json({ error: 'No analyzed Product Discovery sessions left to build from after excluding reserved clients.' });
+  }
 
   const previous = await store.readSentimentReport();
 
