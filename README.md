@@ -259,15 +259,18 @@ everything else (sign-in, navigation, forms) still works.
 9. **Sentiment Report** (top nav) is built for an all-company presentation on v2 sentiment, from
    Product Discovery sessions only (migration-readiness sessions feed the roadmap board but not this
    report — see Migration Readiness above). **Build / Refresh** synthesizes an honest overall
-   sentiment verdict and narrative ("where sentiment sits and what's driving it," weighed against
-   trust concerns and adoption blockers, not rounded up for the audience), the standout headline
-   positive statements (same one-person-per-item shape as a module trend's "wow" quotes), and a
+   sentiment verdict with specific bullet-pointed highlights (not a paragraph — weighed against trust
+   concerns and adoption blockers, not rounded up for the audience), up to 12 standout headline quotes
+   (one person's reaction each, same shape as a module trend's "wow" quotes, hard-capped since
+   Anthropic's structured output can't enforce a max array length itself), and a bullet-pointed
    sentiment breakdown per session type that has enough signal to say something real about. It renders
    as a sequence of full-width "slides" — a colored title slide with session counts, a large icon badge
-   for overall sentiment, headline quotes, and a compact colored-accent row per session type — each
-   printing to its own page via **Print / save as PDF**, so the export is deck-ready to drop straight
-   into a presentation. Some clients and specific topics are deliberately kept out of this report
-   entirely (see `lib/sentiment-report.js`'s `EXCLUDED_CLIENT_SUBSTRINGS`/`FORBIDDEN_TERMS`) — a
+   plus bullets for overall sentiment, big plain quote cards (just the quote and the company names
+   behind it, no theme label or date), and a compact colored-accent row per session type (bulleted
+   highlights, company names only) — each printing to its own page via **Print / save as PDF**, so the
+   export is deck-ready to drop straight into a presentation. Some clients and specific topics are
+   deliberately kept out of this report entirely (see `lib/sentiment-report.js`'s
+   `EXCLUDED_CLIENT_SUBSTRINGS`/`FORBIDDEN_TERMS`) — a
    named client's sessions never reach the model at all, and a forbidden term found anywhere in a
    generated result fails that build outright rather than risk it slipping through.
 10. **Reports** (top nav) is the monthly board pack, led with three hero stat tiles (sessions held,
@@ -421,7 +424,7 @@ IP — 10 in 15 minutes — when Redis is linked.
 | `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, secondaryModules, confidence, classificationReason, item, rationale, evidenceQuote, supporting_session_ids, sourceSessionId, sourceItemKey}` (model-authored/classified, only `module` user-editable — see below) plus `{bucket, owner, complete, requirementsDone}` (fully user-editable via `api/features.js` — marking a card `complete` also marks `requirementsDone`, a one-way rule: a feature can't be complete without its requirements already having been done, but reopening a completed feature doesn't un-mark that), `isManualModule`/`moduleHistory` (set when a human moves `module` by hand — see "Manual overrides" below), and `createdAt`/`updatedAt`. `sourceSessionId`+`sourceItemKey` (`` `${sessionId}#${itemIndex}` ``) link a card back to the exact extracted item it came from, so re-analyzing that session updates the same card rather than duplicating it. |
 | `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, and the synthesized result — `overview_summary`, `value_moments` (the "wow" quotes, each citing exactly one session id), `adoption_blockers`, `gtm_messaging`. No longer holds feature cards or counts — those live in `pds:feature:index` now and are computed live wherever they're needed. |
 | `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |
-| `pds:sentiment-report` | The one sentiment report record: same shape/staleness convention as the gtm record, but scoped to Product Discovery sessions only — `overall_sentiment`/`overall_narrative`, `headline_statements` (one person's reaction each, same shape as a module trend's `value_moments`), and `module_breakdown` (one sentiment verdict + summary per session type with enough signal). |
+| `pds:sentiment-report` | The one sentiment report record: same shape/staleness convention as the gtm record, but scoped to Product Discovery sessions only — `overall_sentiment`/`overall_highlights` (bullet points, not a paragraph), `headline_statements` (quote + `supporting_session_ids` only, one person's reaction each, hard-capped to 12 after generation), and `module_breakdown` (one sentiment verdict + `highlights` bullet points per session type with enough signal). |
 
 Two Redis keys per session (index + full record), not one blob: transcripts can run to tens of
 thousands of characters, and a dashboard that had to read every transcript just to list rows would

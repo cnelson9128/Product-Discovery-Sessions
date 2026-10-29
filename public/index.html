@@ -346,17 +346,33 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 .sentiment-badge-ring.error{background:var(--crit-bg);color:var(--crit-ink)}
 .sentiment-badge-ring.draft{background:var(--draft-bg);color:var(--draft-ink)}
 .sentiment-badge-label{font-size:20px;font-weight:800}
-.slide-narrative{font-size:17px;line-height:1.65;max-width:720px;margin:0 auto;text-align:center}
+
+/* Overall-direction bullets — specific, scannable points rather than a
+   paragraph of prose. */
+.sentiment-highlights{max-width:640px;margin:0 auto;text-align:left;font-size:16px;line-height:1.6;color:var(--ink-2)}
+.sentiment-highlights li{margin-bottom:10px}
 
 /* By-session-type breakdown — compact rows, not a grid of large tiles: a
-   colored left accent plus module/badge/summary on one line each, so a
+   colored left accent plus module/badge/highlights on one card each, so a
    dozen session types stay scannable on one slide instead of sprawling. */
 .sentiment-rows{display:flex;flex-direction:column;gap:10px}
 .sentiment-row{background:var(--panel);border:1px solid var(--line);border-left-width:4px;
   border-radius:10px;padding:12px 16px}
 .sentiment-row-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .sentiment-row-module{font-weight:700;font-size:14px}
-.sentiment-row-summary{font-size:13px;color:var(--ink-2);margin:6px 0 0}
+.sentiment-row-highlights{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--ink-2)}
+.sentiment-row-highlights li{margin-bottom:4px}
+.sentiment-row-chips{margin-top:8px;display:flex;gap:4px;flex-wrap:wrap}
+
+/* Headline-statement quotes — bigger and plainer than the shared quoteCard()
+   used elsewhere (Quote Wall, module Value Created), which still show a
+   theme label and date this presentation-focused slide deliberately omits. */
+.sentiment-quote-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.sentiment-quote-card{background:var(--bg);border:1px solid var(--line);border-radius:14px;
+  padding:26px 22px;text-align:center}
+.sentiment-quote-mark{font-size:42px;color:var(--accent);line-height:1;display:block;margin-bottom:6px;font-family:Georgia,serif}
+.sentiment-quote-text{font-size:17px;font-weight:600;line-height:1.5;color:var(--ink);font-style:italic;margin:0 0 12px}
+.sentiment-quote-chip{display:flex;justify-content:center;flex-wrap:wrap;gap:4px}
 
 @media print{
   .slide{break-inside:avoid;break-after:page;border:1px solid #ccc;box-shadow:none}
@@ -1826,6 +1842,32 @@ function bootApp(storageConfigured){
   function sentimentAccentVar(level){
     return {strongly_positive:'--ok-ink',positive:'--ok-ink',mixed:'--warn-ink',needs_attention:'--crit-ink',not_enough_signal:'--draft-ink'}[level]||'--draft-ink';
   }
+  /* Company name only, no date — distinct from the shared chips()/sessionChip()
+     helper (used everywhere else: Quote Wall, module detail, GTM), which this
+     presentation-focused report deliberately doesn't want. Deduplicates by
+     name, since several supporting sessions can be the same company, and
+     renders as plain (non-clickable) chips — there's no single session left
+     to link to once multiple are collapsed into one company name. */
+  function companyChips(ids,index){
+    if(!ids || !ids.length) return '';
+    const names=[];
+    ids.forEach(function(id){
+      const s=index.find(function(x){ return x.id===id; });
+      if(s && names.indexOf(s.customerName)<0) names.push(s.customerName);
+    });
+    if(!names.length) return '';
+    return names.map(function(n){ return '<span class="chip">'+esc(n)+'</span>'; }).join('');
+  }
+  /* A bigger, plainer quote treatment than the shared quoteCard() (used by
+     Quote Wall and module Value Created, which still want the theme label
+     and date) — just the quote and a company chip, sized for a slide. */
+  function sentimentQuoteCard(quote,chipsHtml){
+    return '<div class="sentiment-quote-card">'+
+      '<span class="sentiment-quote-mark">&ldquo;</span>'+
+      '<p class="sentiment-quote-text">'+esc(quote)+'</p>'+
+      (chipsHtml?'<div class="sentiment-quote-chip">'+chipsHtml+'</div>':'')+
+    '</div>';
+  }
 
   async function loadSentimentReport(){
     const body=document.getElementById('sentimentbody');
@@ -1880,15 +1922,17 @@ function bootApp(storageConfigured){
             '<div class="sentiment-badge-ring '+sentimentBadgeClass(r.overall_sentiment)+'">'+sentimentIcon(r.overall_sentiment)+'</div>'+
             '<div class="sentiment-badge-label">'+esc(sentimentLabel(r.overall_sentiment))+'</div>'+
           '</div>'+
-          '<p class="summary-text slide-narrative">'+esc(r.overall_narrative)+'</p>'+
+          (r.overall_highlights.length
+            ? '<ul class="sentiment-highlights">'+r.overall_highlights.map(function(h){ return '<li>'+esc(h)+'</li>'; }).join('')+'</ul>'
+            : '<p class="sub" style="text-align:center">Nothing specific enough to call out yet.</p>')+
         '</div>';
 
       const headlineSlide=
         '<div class="slide">'+
           '<div class="slide-eyebrow">Headline statements</div>'+
           (r.headline_statements.length
-            ? '<div class="quote-grid">'+r.headline_statements.map(function(h){
-                return quoteCard(h.quote, h.theme, chips(h.supporting_session_ids,index));
+            ? '<div class="sentiment-quote-grid">'+r.headline_statements.map(function(h){
+                return sentimentQuoteCard(h.quote, companyChips(h.supporting_session_ids,index));
               }).join('')+'</div>'
             : '<p class="sub">No standout "wow" moments surfaced yet.</p>')+
         '</div>';
@@ -1901,8 +1945,8 @@ function bootApp(storageConfigured){
                 return '<div class="sentiment-row" style="border-left-color:var('+sentimentAccentVar(m.sentiment)+')">'+
                   '<div class="sentiment-row-head"><span class="sentiment-row-module">'+esc(moduleLabel(m.module))+'</span>'+
                     '<span class="badge '+sentimentBadgeClass(m.sentiment)+'">'+esc(sentimentLabel(m.sentiment))+'</span></div>'+
-                  '<p class="sentiment-row-summary">'+esc(m.summary)+'</p>'+
-                  chips(m.supporting_session_ids,index)+
+                  (m.highlights.length ? '<ul class="sentiment-row-highlights">'+m.highlights.map(function(h){ return '<li>'+esc(h)+'</li>'; }).join('')+'</ul>' : '')+
+                  '<div class="sentiment-row-chips">'+companyChips(m.supporting_session_ids,index)+'</div>'+
                 '</div>';
               }).join('')+'</div>'
             : '<p class="sub">Not enough analyzed sessions yet to break this down by session type.</p>')+

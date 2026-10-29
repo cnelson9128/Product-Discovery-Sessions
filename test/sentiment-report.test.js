@@ -45,6 +45,10 @@ test('headline_statements and module_breakdown both require supporting_session_i
   assert.ok(schema.properties.module_breakdown.items.required.includes('supporting_session_ids'));
 });
 
+test('MAX_HEADLINE_STATEMENTS caps headline statements at 12', function () {
+  assert.equal(sentimentReport.MAX_HEADLINE_STATEMENTS, 12);
+});
+
 test('isExcludedClient matches case-insensitively and as a substring, since the exact stored spelling may vary', function () {
   assert.equal(sentimentReport.isExcludedClient('Carmichael'), true);
   assert.equal(sentimentReport.isExcludedClient('carmichael recruitment ltd'), true);
@@ -60,20 +64,42 @@ test('containsForbiddenTerm matches case-insensitively', function () {
   assert.equal(sentimentReport.containsForbiddenTerm('nothing forbidden here'), null);
 });
 
-test('findForbiddenTermInResult scans overall_narrative, headline_statements, and module_breakdown summaries', function () {
+test('findForbiddenTermInResult scans overall_highlights, headline_statements, and module_breakdown highlights', function () {
   const clean = {
-    overall_narrative: 'Customers are excited about search speed.',
-    headline_statements: [{ quote: 'This saves us hours.', theme: 'Time savings' }],
-    module_breakdown: [{ summary: 'Strong, consistent positive feedback.' }]
+    overall_highlights: ['Customers are excited about search speed.'],
+    headline_statements: [{ quote: 'This saves us hours.' }],
+    module_breakdown: [{ highlights: ['Strong, consistent positive feedback.'] }]
   };
   assert.equal(sentimentReport.findForbiddenTermInResult(clean), null);
 
-  const narrativeHit = Object.assign({}, clean, { overall_narrative: 'Customers love the Deep Search tool.' });
-  assert.deepEqual(sentimentReport.findForbiddenTermInResult(narrativeHit), { field: 'overall_narrative', term: 'deep search' });
+  const highlightHit = Object.assign({}, clean, { overall_highlights: ['Customers love the Deep Search tool.'] });
+  assert.deepEqual(sentimentReport.findForbiddenTermInResult(highlightHit), { field: 'overall_highlights', term: 'deep search' });
 
-  const quoteHit = Object.assign({}, clean, { headline_statements: [{ quote: 'Deep search changed everything.', theme: 'x' }] });
+  const quoteHit = Object.assign({}, clean, { headline_statements: [{ quote: 'Deep search changed everything.' }] });
   assert.deepEqual(sentimentReport.findForbiddenTermInResult(quoteHit), { field: 'headline_statements', term: 'deep search' });
 
-  const summaryHit = Object.assign({}, clean, { module_breakdown: [{ summary: 'They mentioned deep search positively.' }] });
-  assert.deepEqual(sentimentReport.findForbiddenTermInResult(summaryHit), { field: 'module_breakdown', term: 'deep search' });
+  const moduleHit = Object.assign({}, clean, { module_breakdown: [{ highlights: ['They mentioned deep search positively.'] }] });
+  assert.deepEqual(sentimentReport.findForbiddenTermInResult(moduleHit), { field: 'module_breakdown', term: 'deep search' });
+});
+
+test('headline_statements no longer carries a theme field — quote only, plus attribution', function () {
+  const schema = sentimentReport.SENTIMENT_SCHEMA;
+  assert.deepEqual(Object.keys(schema.properties.headline_statements.items.properties).sort(), ['quote', 'supporting_session_ids']);
+  assert.deepEqual(schema.properties.headline_statements.items.required.sort(), ['quote', 'supporting_session_ids']);
+});
+
+test('module_breakdown uses highlights (bullet points), not a single summary string', function () {
+  const schema = sentimentReport.SENTIMENT_SCHEMA;
+  const props = schema.properties.module_breakdown.items.properties;
+  assert.equal(props.summary, undefined, 'summary field removed');
+  assert.equal(props.highlights.type, 'array');
+  assert.equal(props.highlights.items.type, 'string');
+});
+
+test('overall_highlights replaces overall_narrative as a list of bullet points', function () {
+  const schema = sentimentReport.SENTIMENT_SCHEMA;
+  assert.equal(schema.properties.overall_narrative, undefined);
+  assert.equal(schema.properties.overall_highlights.type, 'array');
+  assert.equal(schema.properties.overall_highlights.items.type, 'string');
+  assert.ok(schema.required.includes('overall_highlights'));
 });
