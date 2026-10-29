@@ -1915,6 +1915,16 @@ function bootApp(storageConfigured){
           '<p class="hint">Generated '+esc(fmtDateTime(report.builtAt))+'</p>'+
         '</div>';
 
+      /* Defensive against a report built before this schema shipped
+         (overall_narrative/theme/summary instead of highlight bullets) —
+         same "old shape, prompt a rebuild" handling already used elsewhere
+         (e.g. renderModuleDetail's value_moments check), so an old stored
+         report can't crash this page before it's rebuilt. */
+      const overallHighlights=Array.isArray(r.overall_highlights) ? r.overall_highlights : null;
+      const headlineStatements=Array.isArray(r.headline_statements) ? r.headline_statements : [];
+      const moduleBreakdown=Array.isArray(r.module_breakdown) ? r.module_breakdown : [];
+      const rebuildHint='<p class="hint">This report was built in an older format — click Build / Refresh above to update it.</p>';
+
       const overallSlide=
         '<div class="slide">'+
           '<div class="slide-eyebrow">Overall direction</div>'+
@@ -1922,16 +1932,18 @@ function bootApp(storageConfigured){
             '<div class="sentiment-badge-ring '+sentimentBadgeClass(r.overall_sentiment)+'">'+sentimentIcon(r.overall_sentiment)+'</div>'+
             '<div class="sentiment-badge-label">'+esc(sentimentLabel(r.overall_sentiment))+'</div>'+
           '</div>'+
-          (r.overall_highlights.length
-            ? '<ul class="sentiment-highlights">'+r.overall_highlights.map(function(h){ return '<li>'+esc(h)+'</li>'; }).join('')+'</ul>'
-            : '<p class="sub" style="text-align:center">Nothing specific enough to call out yet.</p>')+
+          (overallHighlights===null
+            ? rebuildHint
+            : overallHighlights.length
+              ? '<ul class="sentiment-highlights">'+overallHighlights.map(function(h){ return '<li>'+esc(h)+'</li>'; }).join('')+'</ul>'
+              : '<p class="sub" style="text-align:center">Nothing specific enough to call out yet.</p>')+
         '</div>';
 
       const headlineSlide=
         '<div class="slide">'+
           '<div class="slide-eyebrow">Headline statements</div>'+
-          (r.headline_statements.length
-            ? '<div class="sentiment-quote-grid">'+r.headline_statements.map(function(h){
+          (headlineStatements.length
+            ? '<div class="sentiment-quote-grid">'+headlineStatements.map(function(h){
                 return sentimentQuoteCard(h.quote, companyChips(h.supporting_session_ids,index));
               }).join('')+'</div>'
             : '<p class="sub">No standout "wow" moments surfaced yet.</p>')+
@@ -1940,12 +1952,13 @@ function bootApp(storageConfigured){
       const moduleSlide=
         '<div class="slide">'+
           '<div class="slide-eyebrow">By session type</div>'+
-          (r.module_breakdown.length
-            ? '<div class="sentiment-rows">'+r.module_breakdown.map(function(m){
+          (moduleBreakdown.length
+            ? '<div class="sentiment-rows">'+moduleBreakdown.map(function(m){
+                const mHighlights=Array.isArray(m.highlights) ? m.highlights : null;
                 return '<div class="sentiment-row" style="border-left-color:var('+sentimentAccentVar(m.sentiment)+')">'+
                   '<div class="sentiment-row-head"><span class="sentiment-row-module">'+esc(moduleLabel(m.module))+'</span>'+
                     '<span class="badge '+sentimentBadgeClass(m.sentiment)+'">'+esc(sentimentLabel(m.sentiment))+'</span></div>'+
-                  (m.highlights.length ? '<ul class="sentiment-row-highlights">'+m.highlights.map(function(h){ return '<li>'+esc(h)+'</li>'; }).join('')+'</ul>' : '')+
+                  (mHighlights===null ? rebuildHint : mHighlights.length ? '<ul class="sentiment-row-highlights">'+mHighlights.map(function(h){ return '<li>'+esc(h)+'</li>'; }).join('')+'</ul>' : '')+
                   '<div class="sentiment-row-chips">'+companyChips(m.supporting_session_ids,index)+'</div>'+
                 '</div>';
               }).join('')+'</div>'
