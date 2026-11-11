@@ -230,6 +230,9 @@ everything else (sign-in, navigation, forms) still works.
      override: the parser will never move it again on a later re-analysis, and a **📌 Manual** button
      appears to hand it back — click it to restore the parser's own classification.
    - **Assign an owner** (free text, inline on the card, shown as an initials avatar).
+   - **Link a ticket** (free text, e.g. a Jira id like `MOON-411`) — not used by anything in this
+     app directly, but there so an external sync script (reading another repo's commit history, for
+     example) has a stable id to match a card against before marking it complete via `api/features.js`.
    - **Mark requirements done** (a checkbox — independent of delivery) and/or **mark complete**
      (marking complete also marks requirements done, since a feature can't be complete without that
      already having happened — reopening a completed card doesn't undo it).

@@ -244,6 +244,10 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
   background:transparent;color:var(--ink);width:88px;transition:border-color .15s ease,background .15s ease}
 .ownerinput:hover,.ownerinput:focus{border-color:var(--line);background:var(--bg)}
 .ownerinput::placeholder{color:var(--ink-3)}
+.ticketinput{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid transparent;
+  background:transparent;color:var(--ink);width:120px;transition:border-color .15s ease,background .15s ease}
+.ticketinput:hover,.ticketinput:focus{border-color:var(--line);background:var(--bg)}
+.ticketinput::placeholder{color:var(--ink-3)}
 .reqdonebox{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-2);cursor:pointer;
   user-select:none;margin-left:auto}
 .reqdonebox input{cursor:pointer}
@@ -1561,6 +1565,7 @@ function bootApp(storageConfigured){
         '<div class="pitem-controls-secondary">'+
           '<div class="pitem-avatar" style="background:'+(c.owner?solid:'var(--ink-3)')+'" title="'+(c.owner?esc(c.owner):'Unassigned')+'">'+av+'</div>'+
           '<input type="text" class="ownerinput" data-feature-id="'+esc(c.id)+'" placeholder="Unassigned" value="'+esc(c.owner||'')+'">'+
+          '<input type="text" class="ticketinput" data-feature-id="'+esc(c.id)+'" placeholder="Ticket (e.g. MOON-411)" title="Linked ticket" value="'+esc(c.linkedTicket||'')+'">'+
           '<button type="button" class="completebtn" data-feature-id="'+esc(c.id)+'" data-complete="'+(c.complete?'0':'1')+'">'+(c.complete?'Reopen':'✓ Complete')+'</button>'+
           '<button type="button" class="removebtn" data-feature-id="'+esc(c.id)+'">Remove</button>'+
         '</div>'+
@@ -1730,6 +1735,20 @@ function bootApp(storageConfigured){
       inp.addEventListener('blur',async function(){
         const res=await save();
         if(!res.ok) alert(res.body.error||'Could not save the owner.');
+      });
+      inp.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
+      });
+    });
+    body.querySelectorAll('.ticketinput').forEach(function(inp){
+      function save(){
+        return api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'update',id:inp.dataset.featureId,linkedTicket:inp.value
+        })});
+      }
+      inp.addEventListener('blur',async function(){
+        const res=await save();
+        if(!res.ok) alert(res.body.error||'Could not save the linked ticket.');
       });
       inp.addEventListener('keydown',function(e){
         if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }

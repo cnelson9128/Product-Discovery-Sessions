@@ -4,10 +4,16 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { validatePatch, applyPatch, toRestoredFields, historyForRestore } = require('../api/features');
 
-test('validatePatch accepts the five known fields', function () {
-  const patch = validatePatch({ bucket: 'launch', module: 'search-match', owner: 'Jane', complete: true, requirementsDone: false });
+test('validatePatch accepts the six known fields', function () {
+  const patch = validatePatch({ bucket: 'launch', module: 'search-match', owner: 'Jane', complete: true, requirementsDone: false, linkedTicket: 'MOON-411' });
   assert.deepEqual(patch.errors, []);
-  assert.deepEqual(patch.out, { bucket: 'launch', module: 'search-match', owner: 'Jane', complete: true, requirementsDone: false });
+  assert.deepEqual(patch.out, { bucket: 'launch', module: 'search-match', owner: 'Jane', complete: true, requirementsDone: false, linkedTicket: 'MOON-411' });
+});
+
+test('validatePatch trims linkedTicket and rejects one that is too long', function () {
+  assert.equal(validatePatch({ linkedTicket: '  MOON-411  ' }).out.linkedTicket, 'MOON-411');
+  assert.deepEqual(validatePatch({ linkedTicket: '' }).out, { linkedTicket: '' }, 'an empty string clears it');
+  assert.ok(validatePatch({ linkedTicket: 'x'.repeat(51) }).errors.length);
 });
 
 test('validatePatch rejects model-authored fields', function () {

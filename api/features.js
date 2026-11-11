@@ -7,6 +7,7 @@ const buckets = require('../lib/buckets');
 const moduleClassification = require('../lib/module-classification');
 
 const OWNER_MAX = 200;
+const LINKED_TICKET_MAX = 50;
 
 /*
  * CRUD surface for roadmap features (see lib/store.js's "roadmap features"
@@ -17,7 +18,9 @@ const OWNER_MAX = 200;
  * `item`/`rationale`/`supporting_session_ids` are model-authored and
  * evidence-linked — they are never accepted by the update allow-list below.
  * Only `bucket`, `module` (moving a feature between modules), `owner`,
- * `complete`, and `requirementsDone` are user-editable.
+ * `complete`, `requirementsDone`, and `linkedTicket` (e.g. a Jira ticket id
+ * like "MOON-411" — set by hand so an external sync script can later mark
+ * this card complete when that ticket ships) are user-editable.
  *
  * A `module` change here is always a manual override: it sets
  * `isManualModule`, which tells lib/feature-sync.js to stop touching this
@@ -97,6 +100,17 @@ function validatePatch(body) {
       errors.push('owner is longer than ' + OWNER_MAX + ' characters.');
     } else {
       out.owner = body.owner.trim();
+    }
+  }
+
+  if (body.linkedTicket !== undefined) {
+    any = true;
+    if (typeof body.linkedTicket !== 'string') {
+      errors.push('linkedTicket must be text.');
+    } else if (body.linkedTicket.length > LINKED_TICKET_MAX) {
+      errors.push('linkedTicket is longer than ' + LINKED_TICKET_MAX + ' characters.');
+    } else {
+      out.linkedTicket = body.linkedTicket.trim();
     }
   }
 
