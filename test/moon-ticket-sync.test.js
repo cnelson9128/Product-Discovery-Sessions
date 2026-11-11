@@ -1,10 +1,22 @@
 'use strict';
 
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const sync = require('../scripts/moon-ticket-sync');
-const { migrateState, extractTicketShas, runSemanticPass, MAX_COMMITS_FOR_MATCHING } = sync;
+const { migrateState, extractTicketShas, runSemanticPass, gatherDiffSample, MAX_COMMITS_FOR_MATCHING, MAX_DIFF_CHARS_PER_COMMIT } = sync;
+
+function makeTestRepo() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'moon-sync-unit-'));
+  const git = function (args) { return execFileSync('git', args, { cwd: dir, encoding: 'utf8' }); };
+  git(['init', '--quiet']);
+  git(['config', 'user.email', 'test@test.local']);
+  git(['config', 'user.name', 'Test']);
+  return { dir: dir, git: git };
+}
 
 test('migrateState starts both watermarks at null when there is no prior state', function () {
   assert.deepEqual(migrateState(null), { lastTicketSha: null, lastSemanticSha: null });
@@ -36,6 +48,58 @@ test('extractTicketShas groups commit shas by every MOON-xxx id in their message
 test('extractTicketShas returns an empty map when no commit mentions a ticket', function () {
   const result = extractTicketShas([{ sha: 's1', message: 'Unrelated chore' }]);
   assert.equal(result.size, 0);
+});
+
+test('gatherDiffSample spreads its budget across multiple changed files instead of exhausting it on the first one', function () {
+  const repo = makeTestRepo();
+  try {
+    fs.writeFileSync(path.join(repo.dir, 'a.txt'), 'x'.repeat(5000));
+    fs.writeFileSync(path.join(repo.dir, 'b.txt'), 'y'.repeat(5000));
+    repo.git(['add', '.']);
+    repo.git(['commit', '-m', 'two big files', '--quiet']);
+    const sha = repo.git(['rev-parse', 'HEAD']).trim();
+
+    const diff = gatherDiffSample(repo.dir, sha);
+    assert.ok(diff.length <= MAX_DIFF_CHARS_PER_COMMIT, 'total diff respects the per-commit cap');
+    assert.ok(diff.includes('a.txt') || /x{10,}/.test(diff), 'a.txt is represented');
+    assert.ok(diff.includes('b.txt') || /y{10,}/.test(diff), 'b.txt is represented too, not just the first file');
+  } finally {
+    fs.rmSync(repo.dir, { recursive: true, force: true });
+  }
+});
+
+test('gatherDiffSample deprioritizes test files in favor of production files when both changed', function () {
+  const repo = makeTestRepo();
+  try {
+    fs.mkdirSync(path.join(repo.dir, '__tests__'));
+    fs.writeFileSync(path.join(repo.dir, '__tests__', 'widget.test.ts'), 'TESTMARKERCONTENT'.repeat(300));
+    fs.writeFileSync(path.join(repo.dir, 'widget.ts'), 'PRODMARKERCONTENT'.repeat(300));
+    repo.git(['add', '.']);
+    repo.git(['commit', '-m', 'widget plus its test', '--quiet']);
+    const sha = repo.git(['rev-parse', 'HEAD']).trim();
+
+    const diff = gatherDiffSample(repo.dir, sha);
+    assert.ok(diff.includes('PRODMARKERCONTENT'), 'production file content is included');
+    assert.ok(!diff.includes('TESTMARKERCONTENT'), 'test file is skipped while a production file exists');
+  } finally {
+    fs.rmSync(repo.dir, { recursive: true, force: true });
+  }
+});
+
+test('gatherDiffSample falls back to test files when a commit touches nothing else', function () {
+  const repo = makeTestRepo();
+  try {
+    fs.mkdirSync(path.join(repo.dir, '__tests__'));
+    fs.writeFileSync(path.join(repo.dir, '__tests__', 'widget.test.ts'), 'ONLYTESTCONTENT'.repeat(300));
+    repo.git(['add', '.']);
+    repo.git(['commit', '-m', 'test-only commit', '--quiet']);
+    const sha = repo.git(['rev-parse', 'HEAD']).trim();
+
+    const diff = gatherDiffSample(repo.dir, sha);
+    assert.ok(diff.includes('ONLYTESTCONTENT'), 'falls back to the test file rather than returning nothing');
+  } finally {
+    fs.rmSync(repo.dir, { recursive: true, force: true });
+  }
 });
 
 test('runSemanticPass caps an oversized commit list to the FRONT of the array (the most recent commits, since git log lists newest-first), not the back', async function () {

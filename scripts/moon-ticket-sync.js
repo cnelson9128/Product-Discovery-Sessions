@@ -46,7 +46,9 @@ const ENV_FILE = path.join(SCRIPT_DIR, '.env.local');
 const STATE_FILE = path.join(SCRIPT_DIR, '.moon-sync-state.json');
 const LOG_FILE = path.join(SCRIPT_DIR, 'moon-sync.log');
 const TICKET_RE = /MOON-\d+/gi;
-const MAX_DIFF_CHARS_PER_COMMIT = 1500;
+const MAX_DIFF_CHARS_PER_COMMIT = 3000;
+const MAX_FILES_FOR_DIFF = 20;
+const TEST_PATH_RE = /(^|[\\/])(__tests__|tests?)([\\/]|$)|\.test\.|\.spec\.|Tests?\.[a-z]+$/i;
 const MAX_COMMITS_FOR_MATCHING = 60;
 
 function log(line) {
@@ -101,6 +103,42 @@ function git(repoPath, args) {
   return execFileSync('git', args, { cwd: repoPath, encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 }).trim();
 }
 
+/* Spreads MAX_DIFF_CHARS_PER_COMMIT across several changed files rather than
+   grabbing from the start of the raw `git show` output — a commit that
+   touches many files (common on this monorepo: a feature plus its tests,
+   generated types, and incidental churn) would otherwise have its whole
+   budget consumed by whichever file sorts first, often not the one that
+   actually matters. Test files are deprioritized (still listed in `files`,
+   just not spent diff budget on) since they're rarely where "does this
+   feature exist" evidence lives. Caps the number of `git show -- <path>`
+   calls at MAX_FILES_FOR_DIFF so one huge commit can't make a single
+   commit's gather take unreasonably long. */
+function gatherDiffSample(repoPath, sha) {
+  let changedPaths = [];
+  try {
+    changedPaths = git(repoPath, ['show', '--name-only', '--format=', sha]).split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+  } catch (e) {
+    return '';
+  }
+  if (!changedPaths.length) return '';
+
+  const prodPaths = changedPaths.filter(function (p) { return !TEST_PATH_RE.test(p); });
+  const pathsToUse = (prodPaths.length ? prodPaths : changedPaths).slice(0, MAX_FILES_FOR_DIFF);
+  const perFileCap = Math.max(200, Math.floor(MAX_DIFF_CHARS_PER_COMMIT / pathsToUse.length));
+
+  let diff = '';
+  for (const p of pathsToUse) {
+    if (diff.length >= MAX_DIFF_CHARS_PER_COMMIT) break;
+    let fileDiff = '';
+    try { fileDiff = git(repoPath, ['show', '--format=', sha, '--', p]); } catch (e) { continue; }
+    if (!fileDiff) continue;
+    const remaining = MAX_DIFF_CHARS_PER_COMMIT - diff.length;
+    const cap = Math.min(perFileCap, remaining);
+    diff += (diff ? '\n' : '') + fileDiff.slice(0, cap);
+  }
+  return diff.slice(0, MAX_DIFF_CHARS_PER_COMMIT);
+}
+
 /* message/changed-file-stat/capped-diff for one commit — the richest data
    either pass below needs. Exported so a one-off full-history backfill can
    fetch this for an arbitrary list of shas without going through a
@@ -108,9 +146,8 @@ function git(repoPath, args) {
 function gatherOneCommit(repoPath, sha) {
   const message = git(repoPath, ['log', '-1', '--pretty=%s%n%n%b', sha]).trim();
   let files = '';
-  let diff = '';
   try { files = git(repoPath, ['show', '--stat', '--format=', sha]).trim(); } catch (e) { /* binary/merge weirdness — not fatal */ }
-  try { diff = git(repoPath, ['show', '--format=', sha]).slice(0, MAX_DIFF_CHARS_PER_COMMIT); } catch (e) { /* same */ }
+  const diff = gatherDiffSample(repoPath, sha);
   return { sha: sha, message: message, files: files, diff: diff };
 }
 
@@ -328,6 +365,6 @@ if (require.main === module) {
    repo and a local fake of the features API, without main()'s hardcoded
    reads of the real scripts/.env.local, state file, and log file on disk. */
 module.exports = {
-  migrateState, extractTicketShas, MAX_COMMITS_FOR_MATCHING,
-  gatherCommits, gatherOneCommit, apiLogin, apiGetFeatures, apiAction, runTicketPass, runSemanticPass
+  migrateState, extractTicketShas, MAX_COMMITS_FOR_MATCHING, MAX_DIFF_CHARS_PER_COMMIT, MAX_FILES_FOR_DIFF,
+  gatherCommits, gatherOneCommit, gatherDiffSample, apiLogin, apiGetFeatures, apiAction, runTicketPass, runSemanticPass
 };
