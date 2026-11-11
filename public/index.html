@@ -240,6 +240,15 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 .pitem-controls button.removebtn:hover{border-color:var(--crit-ink);color:var(--crit-ink)}
 .pitem-controls-secondary{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;
   padding-top:10px;border-top:1px solid var(--line)}
+.automatch-banner{background:var(--warn-bg);border:1px solid var(--warn-ink);border-radius:8px;
+  padding:8px 10px;margin-top:8px}
+.automatch-text{font-size:12px;color:var(--warn-ink);line-height:1.4}
+.automatch-actions{display:flex;gap:6px;margin-top:6px}
+.automatch-actions button{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--warn-ink);
+  background:transparent;color:var(--warn-ink);cursor:pointer;transition:background .15s ease}
+.automatch-actions button.automatch-confirm{background:var(--warn-ink);color:#fff}
+.automatch-actions button:hover{filter:brightness(1.1)}
+.automatch-note{font-size:11px;color:var(--ink-3);margin-top:6px;cursor:help}
 .ownerinput{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid transparent;
   background:transparent;color:var(--ink);width:88px;transition:border-color .15s ease,background .15s ease}
 .ownerinput:hover,.ownerinput:focus{border-color:var(--line);background:var(--bg)}
@@ -1540,11 +1549,24 @@ function bootApp(storageConfigured){
       const solid='var('+BUCKET_SOLID_VAR[c.bucket]+')';
       const av=initials(c.owner);
       const hasClassifyInfo=c.classificationReason||c.evidenceQuote||(c.secondaryModules&&c.secondaryModules.length);
+      const suggestion=c.autoCompleteSuggestion;
+      const suggestionBlock=suggestion
+        ? '<div class="automatch-banner"><div class="automatch-text">🤖 Possibly shipped ('+esc(suggestion.confidence)+' confidence): '+esc(suggestion.reason)+'</div>'+
+            '<div class="automatch-actions">'+
+              '<button type="button" class="automatch-confirm" data-feature-id="'+esc(c.id)+'">Confirm complete</button>'+
+              '<button type="button" class="automatch-dismiss" data-feature-id="'+esc(c.id)+'">Dismiss</button>'+
+            '</div></div>'
+        : '';
+      const autoCompletedNote=(c.complete && c.autoCompletedFrom)
+        ? '<div class="automatch-note" title="'+esc(c.autoCompletedFrom.reason)+'">🤖 Auto-completed via Moon sync</div>'
+        : '';
       return '<div class="pitem'+(c.complete?' complete':'')+' transition-all duration-150 hover:shadow-lg hover:-translate-y-0.5" '+
         'style="border-left-color:'+solid+'" data-feature-id="'+esc(c.id)+'">'+
         '<div class="pitem-head"><div class="pitem-text">'+esc(c.item)+'</div>'+
           (c.confidence==='low'?'<span class="needs-review-pill" title="Low-confidence module classification — worth a glance">Needs review</span>':'')+
         '</div>'+
+        suggestionBlock+
+        autoCompletedNote+
         '<div class="rationale">'+esc(c.rationale)+'</div>'+
         chips(c.supporting_session_ids,index)+
         (hasClassifyInfo ? '<details class="classify-details"><summary>Why '+esc(moduleLabel(c.module))+'?</summary>'+
@@ -1772,6 +1794,26 @@ function bootApp(storageConfigured){
           action:'delete',id:btn.dataset.featureId
         })});
         if(!res.ok){ alert(res.body.error||'Could not remove the card.'); }
+        await openModuleDetail(moduleId);
+      });
+    });
+    body.querySelectorAll('.automatch-confirm').forEach(function(btn){
+      btn.addEventListener('click',async function(){
+        btn.disabled=true;
+        const res=await api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'update',id:btn.dataset.featureId,complete:true
+        })});
+        if(!res.ok){ alert(res.body.error||'Could not mark the card complete.'); }
+        await openModuleDetail(moduleId);
+      });
+    });
+    body.querySelectorAll('.automatch-dismiss').forEach(function(btn){
+      btn.addEventListener('click',async function(){
+        btn.disabled=true;
+        const res=await api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'dismissSuggestion',id:btn.dataset.featureId
+        })});
+        if(!res.ok){ alert(res.body.error||'Could not dismiss the suggestion.'); }
         await openModuleDetail(moduleId);
       });
     });

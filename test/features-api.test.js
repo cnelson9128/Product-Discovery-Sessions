@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { validatePatch, applyPatch, toRestoredFields, historyForRestore } = require('../api/features');
+const { validatePatch, applyPatch, toRestoredFields, historyForRestore, validateEvidence } = require('../api/features');
 
 test('validatePatch accepts the six known fields', function () {
   const patch = validatePatch({ bucket: 'launch', module: 'search-match', owner: 'Jane', complete: true, requirementsDone: false, linkedTicket: 'MOON-411' });
@@ -113,4 +113,43 @@ test('historyForRestore only records an entry when the restored module actually 
   assert.equal(differentModule.length, 1);
   assert.equal(differentModule[0].from, 'job-workflows');
   assert.equal(differentModule[0].to, 'search-match');
+});
+
+test('applyPatch clears a pending autoCompleteSuggestion whenever complete is set true', function () {
+  const feature = { module: 'search-match', complete: false, autoCompleteSuggestion: { confidence: 'medium', reason: 'r', commitShas: ['abc'] } };
+  const out = applyPatch(feature, { complete: true });
+  assert.equal(out.requirementsDone, true);
+  assert.equal(out.autoCompleteSuggestion, null);
+});
+
+test('validateEvidence requires a reason and at least one commit sha', function () {
+  assert.ok(validateEvidence({}, {}).errors.some(function (e) { return /reason is required/.test(e); }));
+  assert.ok(validateEvidence({ reason: 'did the thing' }, {}).errors.some(function (e) { return /commitShas must be/.test(e); }));
+
+  const ok = validateEvidence({ reason: 'did the thing', commitShas: ['abc123', 'def456'] }, {});
+  assert.deepEqual(ok.errors, []);
+  assert.deepEqual(ok.out, { reason: 'did the thing', commitShas: ['abc123', 'def456'] });
+});
+
+test('validateEvidence rejects too many commit shas or an oversized reason', function () {
+  const tooMany = validateEvidence({ reason: 'r', commitShas: new Array(21).fill('a') }, {});
+  assert.ok(tooMany.errors.length);
+
+  const tooLong = validateEvidence({ reason: 'x'.repeat(501), commitShas: ['a'] }, {});
+  assert.ok(tooLong.errors.length);
+});
+
+test('validateEvidence requires a known confidence level only when requireConfidence is set', function () {
+  const withoutRequirement = validateEvidence({ reason: 'r', commitShas: ['a'] }, {});
+  assert.deepEqual(withoutRequirement.errors, []);
+
+  const missing = validateEvidence({ reason: 'r', commitShas: ['a'] }, { requireConfidence: true });
+  assert.ok(missing.errors.some(function (e) { return /confidence must be/.test(e); }));
+
+  const bad = validateEvidence({ reason: 'r', commitShas: ['a'], confidence: 'certain' }, { requireConfidence: true });
+  assert.ok(bad.errors.some(function (e) { return /confidence must be/.test(e); }));
+
+  const good = validateEvidence({ reason: 'r', commitShas: ['a'], confidence: 'medium' }, { requireConfidence: true });
+  assert.deepEqual(good.errors, []);
+  assert.equal(good.out.confidence, 'medium');
 });
