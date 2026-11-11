@@ -284,6 +284,9 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 .epic-source-card.complete{opacity:.6}
 .epic-source-card.complete .epic-source-text{text-decoration:line-through}
 .epic-source-text{font-size:12px;color:var(--ink-2)}
+.epic-source-controls{margin-top:6px}
+.epic-source-controls .completebtn{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--panel);cursor:pointer}
+.epic-source-controls .completebtn:hover{border-color:var(--accent);color:var(--accent)}
 .pitem-controls button.ungroupepicbtn:hover{border-color:var(--crit-ink);color:var(--crit-ink)}
 
 .hbar-legend{display:flex;gap:16px;align-items:center;margin-bottom:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
@@ -1642,6 +1645,9 @@ function bootApp(storageConfigured){
                 return '<div class="epic-source-card'+(f.complete?' complete':'')+'">'+
                   '<div class="epic-source-text">'+esc(f.item)+'</div>'+
                   chips(f.supporting_session_ids,index)+
+                  '<div class="epic-source-controls">'+
+                    '<button type="button" class="completebtn" data-feature-id="'+esc(f.id)+'" data-complete="'+(f.complete?'0':'1')+'">'+(f.complete?'Reopen':'✓ Complete')+'</button>'+
+                  '</div>'+
                 '</div>';
               }).join('')+
             '</details>'+
