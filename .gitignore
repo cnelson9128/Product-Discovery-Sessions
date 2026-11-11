@@ -2,3 +2,5 @@ node_modules/
 .vercel/
 .env
 .env.local
+scripts/.moon-sync-state.json
+scripts/moon-sync.log

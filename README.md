@@ -424,7 +424,7 @@ IP — 10 in 15 minutes — when Redis is linked.
 | `pds:session:<id>` | One session's full record: metadata, transcript, the 11-question `analysis` (both tracks), the separate `raisedItems` extraction (every feature/problem/request/opportunity found in the transcript, each pre-classified into its module — both tracks), and — migration-readiness sessions only — `migrationRisk` (readiness verdict, risk areas, blockers, target-date feasibility) and `plannedMigrationDate` (optional, per-session — independent of the batch's own `targetDate` in `pds:migration:roster`, since the batch's two locked clients can land on different actual dates). Fetched only when that session's detail view is opened, when building a module's narrative trend, or when syncing feature cards. |
 | `pds:clients` | A JSON array of managed client names — the product-discovery track's roster. |
 | `pds:migration:roster` | The migration-readiness track's roster: `{ [batchId]: { clients: [name1, name2], targetDate } }`. Editable per batch on that batch's page; the 8 batch ids/labels/descriptions themselves are fixed in `lib/batches.js`, same as `lib/modules.js`. |
-| `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, secondaryModules, confidence, classificationReason, item, rationale, evidenceQuote, supporting_session_ids, sourceSessionId, sourceItemKey}` (model-authored/classified, only `module` user-editable — see below) plus `{bucket, owner, complete, requirementsDone}` (fully user-editable via `api/features.js` — marking a card `complete` also marks `requirementsDone`, a one-way rule: a feature can't be complete without its requirements already having been done, but reopening a completed feature doesn't un-mark that), `isManualModule`/`moduleHistory` (set when a human moves `module` by hand — see "Manual overrides" below), and `createdAt`/`updatedAt`. `sourceSessionId`+`sourceItemKey` (`` `${sessionId}#${itemIndex}` ``) link a card back to the exact extracted item it came from, so re-analyzing that session updates the same card rather than duplicating it. |
+| `pds:feature:index` | **The roadmap board.** One JSON array of every feature card, across every module, as a single flat collection (not split index+detail like sessions — a feature record has no heavy payload, so every reader wants the full thing anyway). Each: `{id, module, secondaryModules, confidence, classificationReason, item, rationale, evidenceQuote, supporting_session_ids, sourceSessionId, sourceItemKey}` (model-authored/classified, only `module` user-editable — see below) plus `{bucket, owner, complete, requirementsDone, linkedTicket}` (fully user-editable via `api/features.js` — marking a card `complete` also marks `requirementsDone`, a one-way rule: a feature can't be complete without its requirements already having been done, but reopening a completed feature doesn't un-mark that; `linkedTicket` is free text, e.g. a Jira id, consumed by `scripts/moon-ticket-sync.js` — see "Moon ticket sync" below), `isManualModule`/`moduleHistory` (set when a human moves `module` by hand — see "Manual overrides" below), and `createdAt`/`updatedAt`. `sourceSessionId`+`sourceItemKey` (`` `${sessionId}#${itemIndex}` ``) link a card back to the exact extracted item it came from, so re-analyzing that session updates the same card rather than duplicating it. |
 | `pds:trend:<moduleId>` | One module's last trend build: status, which session ids it was built from, and the synthesized result — `overview_summary`, `value_moments` (the "wow" quotes, each citing exactly one session id), `adoption_blockers`, `gtm_messaging`. No longer holds feature cards or counts — those live in `pds:feature:index` now and are computed live wherever they're needed. |
 | `pds:gtm` | The one overall go-to-market record: same shape as a module trend, but built across every module at once. |
 | `pds:sentiment-report` | The one sentiment report record: same shape/staleness convention as the gtm record, but scoped to Product Discovery sessions only — `overall_sentiment`/`overall_highlights` (bullet points, not a paragraph), `headline_statements` (quote + `supporting_session_ids` only, one person's reaction each, hard-capped to 12 after generation), and `module_breakdown` (one sentiment verdict + `highlights` bullet points per session type with enough signal). |
@@ -503,3 +503,41 @@ https://<domain>/api/admin-migrate-features -X POST`. It moves every old-shape c
 now-unused `cards`/`counts` fields from each trend record. It's idempotent — safe to run more than
 once, and a true no-op on a deployment with nothing to migrate (including a brand-new install). Run
 this one first if it applies, then `admin-reclassify-features` above.
+
+## Moon ticket sync (optional, local-only)
+
+`scripts/moon-ticket-sync.js` keeps feature cards in sync with a separate codebase's delivery —
+specifically, the "Moon" repo (`C:\Repos\Moon` by default), whose commits reference Jira ticket ids
+like `MOON-411`. A feature card's **Ticket** field (next to Owner on the card — see `linkedTicket` in
+the data model above) is how you link a card to the ticket that will actually ship it. The script
+scans that repo's `origin/main` history for `MOON-\d+` ids and marks any card tagged with a matching,
+not-yet-complete ticket as complete (which also marks its requirements done, per the rule above).
+
+This only runs locally — it reads a folder on your machine, so it can't run as a cloud-scheduled job.
+
+**Setup:**
+1. `cd scripts`, copy `.env.local.example` to `.env.local`, and fill in `PDS_BASE_URL` (your live
+   deployment), `PDS_APP_PASSWORD` (the same shared password you sign in with), and `MOON_REPO_PATH`
+   (defaults to `C:\Repos\Moon`). `.env.local` is gitignored — your password never gets committed.
+2. Run it once by hand to check it works: `node scripts/moon-ticket-sync.js`. The first run scans the
+   *entire* history reachable from `origin/main` (so a card tagged with a ticket that already shipped
+   months ago still gets marked complete) and writes `scripts/.moon-sync-state.json` (gitignored,
+   machine-local) with the commit it scanned up to — every run after that only looks at new commits.
+   Progress and any errors are both printed and appended to `scripts/moon-sync.log` (gitignored), so a
+   silent scheduled run still leaves something to check.
+3. Register it to run daily with Windows Task Scheduler, from a PowerShell prompt:
+   ```powershell
+   $action = New-ScheduledTaskAction -Execute "C:\Program Files\nodejs\node.exe" `
+     -Argument "scripts\moon-ticket-sync.js" `
+     -WorkingDirectory "C:\Users\CampbellNelson\.vscode\Product-Discovery-Sessions"
+   $trigger = New-ScheduledTaskTrigger -Daily -At 6:00am
+   Register-ScheduledTask -TaskName "Moon Ticket Sync" -Action $action -Trigger $trigger `
+     -Description "Daily: mark Product Discovery Sessions feature cards complete when their linked MOON ticket ships"
+   ```
+   Adjust the `node.exe` path and `-At` time if yours differ. Check `scripts/moon-sync.log`
+   periodically, or re-run the command by hand any time to sync immediately rather than waiting for
+   the schedule.
+
+A transient failure (network down, API unreachable, wrong password) is logged and the script exits
+without advancing its saved state, so the next run rescans the same commits rather than silently
+skipping them.
