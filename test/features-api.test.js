@@ -42,6 +42,18 @@ test('applyPatch sets isManualModule and appends moduleHistory on a module chang
   assert.equal(out.moduleHistory[0].to, 'job-workflows');
 });
 
+test('applyPatch clears epicId when a module change moves a grouped card out of its epic\'s module', function () {
+  const feature = { module: 'search-match', moduleHistory: [], isManualModule: false, epicId: 'epic-1' };
+  const out = applyPatch(feature, { module: 'job-workflows' });
+  assert.equal(out.epicId, null);
+});
+
+test('applyPatch leaves epicId untouched on a bucket/owner-only patch', function () {
+  const feature = { module: 'search-match', moduleHistory: [], isManualModule: false, epicId: 'epic-1' };
+  const out = applyPatch(feature, { bucket: 'launch' });
+  assert.equal(out.epicId, undefined);
+});
+
 test('applyPatch does not append history when the module is set to its current value', function () {
   const feature = { module: 'search-match', moduleHistory: [], isManualModule: false };
   const out = applyPatch(feature, { module: 'search-match' });

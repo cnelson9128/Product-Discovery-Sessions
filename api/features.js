@@ -174,6 +174,15 @@ function applyPatch(feature, patchOut) {
     history.push({ at: new Date().toISOString(), from: feature.module, to: out.module });
     out.moduleHistory = history;
     out.isManualModule = true;
+    /* An epic and its member cards always share one module (see the
+       "Epics" README section) — the GET ?module= filter and the board's
+       per-module fetch both key on it. Moving a grouped card to a
+       different module would otherwise strand it: invisible on both
+       boards, since it'd carry epicId into a module its epic was never
+       fetched for. Moving it back out of its epic is exactly what a
+       manual module override should do here, same as it already does for
+       classification. */
+    if (feature.epicId) out.epicId = null;
   }
   if (out.complete === true) {
     out.requirementsDone = true;
