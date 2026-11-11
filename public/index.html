@@ -269,6 +269,22 @@ details.transcript pre{white-space:pre-wrap;font-family:inherit;font-size:13px;c
 .classify-details p.evi{font-style:italic;color:var(--ink-3)}
 .pitem-controls button.resetclassifybtn{background:var(--warn-bg);color:var(--warn-ink);border-color:transparent}
 .pitem-controls button.resetclassifybtn:hover{filter:brightness(1.08);border-color:transparent;color:var(--warn-ink)}
+.epic-card{border-left-width:4px}
+.epic-progress-pill{flex-shrink:0;font-size:11px;font-weight:700;color:var(--ink-2);background:var(--bg);
+  border:1px solid var(--line);border-radius:999px;padding:1px 9px}
+.epic-bullets{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.epic-bullet{font-size:12.5px;color:var(--ink-1)}
+.epic-bullet.complete .epic-bullet-text{color:var(--ink-3);text-decoration:line-through}
+.epic-bullet-text{display:block;padding-left:14px;position:relative}
+.epic-bullet-text:before{content:'';position:absolute;left:2px;top:7px;width:5px;height:5px;border-radius:999px;background:var(--ink-3)}
+.epic-bullet-evidence{margin:2px 0 0 14px;font-size:11.5px}
+.epic-bullet-evidence summary{cursor:pointer;color:var(--ink-3);user-select:none}
+.epic-bullet-evidence summary:hover{color:var(--accent)}
+.epic-source-card{margin-top:6px;padding:6px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
+.epic-source-card.complete{opacity:.6}
+.epic-source-card.complete .epic-source-text{text-decoration:line-through}
+.epic-source-text{font-size:12px;color:var(--ink-2)}
+.pitem-controls button.ungroupepicbtn:hover{border-color:var(--crit-ink);color:var(--crit-ink)}
 
 .hbar-legend{display:flex;gap:16px;align-items:center;margin-bottom:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
 .hbar-legend .swatch{display:inline-flex;align-items:center;gap:6px}
@@ -1474,7 +1490,7 @@ function bootApp(storageConfigured){
          built for this module — cards are classified and synced per session,
          not per build (see lib/feature-sync.js) — so this reflects the board
          right now, including cards moved in from other modules. */
-      const g=groupFeatures(features.filter(function(f){ return f.module===m.id; }));
+      const g=groupFeatures(topLevelFeatures(features.filter(function(f){ return f.module===m.id; })));
       const bucketPills=BUCKETS.map(function(b){
         return g[b.id] ? '<span class="modbucket-pill" style="background:var('+BUCKET_SOLID_VAR[b.id]+')" title="'+esc(b.label)+': '+g[b.id]+'">'+g[b.id]+'</span>' : '';
       }).join('');
@@ -1593,6 +1609,59 @@ function bootApp(storageConfigured){
         '</div>'+
       '</div>';
     }
+    /* Epics (c.isEpic) are a second kind of record in the same `features`
+       array — a curated grouping of near-duplicate per-session cards under
+       one board entry, with bullets for the distinct capabilities those
+       cards actually asked for (see api/features.js's header). A card
+       folded into an epic (c.epicId set) no longer renders as its own board
+       entry — only inside its epic's bullet evidence — which is the whole
+       point: fewer, denser cards per module instead of one row per raised
+       item. Nothing is deleted; clearing epicId (or deleting the epic)
+       brings a card straight back onto the board. */
+    const featuresById={};
+    features.forEach(function(f){ featuresById[f.id]=f; });
+    function epicMemberIds(e){
+      return (e.bullets||[]).reduce(function(acc,b){ return acc.concat(b.featureIds); },[]);
+    }
+    function epicMembers(e){
+      return epicMemberIds(e).map(function(id){ return featuresById[id]; }).filter(Boolean);
+    }
+    const topLevel=topLevelFeatures(features);
+
+    function renderEpicCard(e){
+      const solid='var('+BUCKET_SOLID_VAR[e.bucket]+')';
+      const members=epicMembers(e);
+      const doneCount=members.filter(function(f){ return f.complete; }).length;
+      const bulletsHtml=(e.bullets||[]).map(function(b){
+        const bMembers=b.featureIds.map(function(id){ return featuresById[id]; }).filter(Boolean);
+        const bDone=bMembers.length>0 && bMembers.every(function(f){ return f.complete; });
+        return '<li class="epic-bullet'+(bDone?' complete':'')+'">'+
+            '<span class="epic-bullet-text">'+esc(b.text)+'</span>'+
+            '<details class="epic-bullet-evidence"><summary>'+bMembers.length+' source card'+(bMembers.length===1?'':'s')+'</summary>'+
+              bMembers.map(function(f){
+                return '<div class="epic-source-card'+(f.complete?' complete':'')+'">'+
+                  '<div class="epic-source-text">'+esc(f.item)+'</div>'+
+                  chips(f.supporting_session_ids,index)+
+                '</div>';
+              }).join('')+
+            '</details>'+
+          '</li>';
+      }).join('');
+      return '<div class="pitem epic-card'+(e.complete?' complete':'')+' transition-all duration-150 hover:shadow-lg hover:-translate-y-0.5" '+
+        'style="border-left-color:'+solid+'" data-epic-id="'+esc(e.id)+'">'+
+        '<div class="pitem-head"><div class="pitem-text">🧩 '+esc(e.title)+'</div>'+
+          '<span class="epic-progress-pill" title="Source cards complete">'+doneCount+'/'+members.length+'</span>'+
+        '</div>'+
+        '<ul class="epic-bullets">'+bulletsHtml+'</ul>'+
+        '<div class="pitem-controls">'+
+          '<select class="movesel" data-feature-id="'+esc(e.id)+'" title="Bucket" style="background:'+solid+';color:#fff">'+
+            BUCKETS.map(function(b){ return '<option value="'+b.id+'"'+(b.id===e.bucket?' selected':'')+'>'+esc(b.label)+'</option>'; }).join('')+
+          '</select>'+
+          '<button type="button" class="ungroupepicbtn" data-feature-id="'+esc(e.id)+'" title="Delete this epic and bring its source cards back onto the board individually">Ungroup</button>'+
+        '</div>'+
+      '</div>';
+    }
+
     /* Open / Requirements complete / Completed is a three-way partition of
        the board, not three overlapping tags — "Requirements complete" means
        ready to build but not yet marked complete, since completing a feature
@@ -1611,7 +1680,7 @@ function bootApp(storageConfigured){
       if(filterId==='open') return !c.complete && !c.requirementsDone;
       return true;
     }
-    const visibleFeatures=features.filter(function(c){ return matchesFeatureFilter(c,featureBoardFilter); });
+    const visibleFeatures=topLevel.filter(function(c){ return matchesFeatureFilter(c,featureBoardFilter); });
 
     function prioCol(bucket,title){
       const items=visibleFeatures.filter(function(c){ return c.bucket===bucket; });
@@ -1619,8 +1688,8 @@ function bootApp(storageConfigured){
         '<div class="pcol-head"><h4>'+title+'</h4>'+
           '<span class="pcol-count" style="background:var('+BUCKET_SOLID_VAR[bucket]+')">'+items.length+'</span>'+
         '</div>'+
-        (items.length ? items.map(renderCard).join('')
-          : '<p class="rationale px-1">'+(features.some(function(c){ return c.bucket===bucket; })?'No features match this filter.':'Nothing here yet.')+'</p>')+
+        (items.length ? items.map(function(c){ return c.isEpic ? renderEpicCard(c) : renderCard(c); }).join('')
+          : '<p class="rationale px-1">'+(topLevel.some(function(c){ return c.bucket===bucket; })?'No features match this filter.':'Nothing here yet.')+'</p>')+
       '</div>';
     }
 
@@ -1783,6 +1852,17 @@ function bootApp(storageConfigured){
           action:'update',id:btn.dataset.featureId,complete:btn.dataset.complete==='1'
         })});
         if(!res.ok){ alert(res.body.error||'Could not update the card.'); }
+        await openModuleDetail(moduleId);
+      });
+    });
+    body.querySelectorAll('.ungroupepicbtn').forEach(function(btn){
+      btn.addEventListener('click',async function(){
+        if(!confirm('Ungroup this epic? Its source cards return to the board individually. This cannot be undone.')) return;
+        btn.disabled=true;
+        const res=await api('/api/features',{method:'POST',body:JSON.stringify({
+          action:'delete',id:btn.dataset.featureId
+        })});
+        if(!res.ok){ alert(res.body.error||'Could not ungroup this epic.'); }
         await openModuleDetail(moduleId);
       });
     });
@@ -2091,6 +2171,29 @@ function bootApp(storageConfigured){
   /* Same shape the server used to compute via lib/trend-cards.js's now-deleted
      boardCounts — features are a live collection now, so this is computed
      client-side from whatever slice of /api/features a view fetched. */
+  /* Shared between loadModules (board-level counts) and renderModuleDetail
+     (the board itself): the items that actually occupy a slot on a module's
+     board — every ordinary card that hasn't been folded into an epic, plus
+     each epic once, with complete/requirementsDone aggregated from its
+     source cards since an epic has no such field of its own (see
+     api/features.js's header on epics). A card hidden inside an epic
+     (epicId set) is deliberately excluded here, not just from rendering, so
+     "N features" on the modules list matches what you'd actually count on
+     the board. */
+  function topLevelFeatures(features){
+    const byId={};
+    features.forEach(function(f){ byId[f.id]=f; });
+    return features.filter(function(f){ return !f.epicId; }).map(function(f){
+      if(!f.isEpic) return f;
+      const members=(f.bullets||[]).reduce(function(acc,b){ return acc.concat(b.featureIds); },[])
+        .map(function(id){ return byId[id]; }).filter(Boolean);
+      return Object.assign({},f,{
+        complete: members.length>0 && members.every(function(m){ return !!m.complete; }),
+        requirementsDone: members.length>0 && members.every(function(m){ return !!(m.requirementsDone||m.complete); })
+      });
+    });
+  }
+
   function groupFeatures(features){
     return {
       launch: features.filter(function(f){ return f.bucket==='launch'; }).length,

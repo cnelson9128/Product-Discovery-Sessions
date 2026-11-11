@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { validatePatch, applyPatch, toRestoredFields, historyForRestore, validateEvidence } = require('../api/features');
+const { validatePatch, applyPatch, toRestoredFields, historyForRestore, validateEvidence, validateEpicFields, epicFeatureIds, withEpicAssignments } = require('../api/features');
 
 test('validatePatch accepts the six known fields', function () {
   const patch = validatePatch({ bucket: 'launch', module: 'search-match', owner: 'Jane', complete: true, requirementsDone: false, linkedTicket: 'MOON-411' });
@@ -152,4 +152,70 @@ test('validateEvidence requires a known confidence level only when requireConfid
   const good = validateEvidence({ reason: 'r', commitShas: ['a'], confidence: 'medium' }, { requireConfidence: true });
   assert.deepEqual(good.errors, []);
   assert.equal(good.out.confidence, 'medium');
+});
+
+const FEATURES = [
+  { id: 'f1', module: 'search-match', isEpic: false },
+  { id: 'f2', module: 'search-match', isEpic: false },
+  { id: 'f3', module: 'search-match', isEpic: false },
+  { id: 'e1', module: 'search-match', isEpic: true, bullets: [{ id: 'b1', text: 'x', featureIds: ['f1'] }] }
+];
+
+test('validateEpicFields accepts a well-formed epic and defaults bucket to bau', function () {
+  const v = validateEpicFields({
+    module: 'search-match',
+    title: 'Lead management',
+    bullets: [{ text: 'Multiple pipelines', featureIds: ['f1', 'f2'] }, { text: 'Drag and drop boards', featureIds: ['f3'] }]
+  }, FEATURES);
+  assert.deepEqual(v.errors, []);
+  assert.equal(v.out.bucket, 'bau');
+  assert.equal(v.out.title, 'Lead management');
+  assert.equal(v.out.bullets.length, 2);
+  assert.deepEqual(v.out.bullets[0].featureIds, ['f1', 'f2']);
+});
+
+test('validateEpicFields rejects an unknown module, missing title, or empty bullets', function () {
+  assert.ok(validateEpicFields({ module: 'nope', title: 't', bullets: [{ text: 'x', featureIds: ['f1'] }] }, FEATURES).errors.length);
+  assert.ok(validateEpicFields({ module: 'search-match', title: '', bullets: [{ text: 'x', featureIds: ['f1'] }] }, FEATURES).errors.length);
+  assert.ok(validateEpicFields({ module: 'search-match', title: 't', bullets: [] }, FEATURES).errors.length);
+});
+
+test('validateEpicFields rejects a bullet citing an unknown card, another epic, or a duplicate card', function () {
+  assert.ok(validateEpicFields({ module: 'search-match', title: 't', bullets: [{ text: 'x', featureIds: ['nope'] }] }, FEATURES).errors.length);
+  assert.ok(validateEpicFields({ module: 'search-match', title: 't', bullets: [{ text: 'x', featureIds: ['e1'] }] }, FEATURES).errors.length, 'cannot link to another epic');
+  const dup = validateEpicFields({
+    module: 'search-match', title: 't',
+    bullets: [{ text: 'a', featureIds: ['f1'] }, { text: 'b', featureIds: ['f1'] }]
+  }, FEATURES);
+  assert.ok(dup.errors.length, 'same card used in two bullets of one epic');
+});
+
+test('validateEpicFields accepts an explicit valid bucket and rejects an invalid one', function () {
+  const ok = validateEpicFields({ module: 'search-match', bucket: 'launch', title: 't', bullets: [{ text: 'x', featureIds: ['f1'] }] }, FEATURES);
+  assert.equal(ok.out.bucket, 'launch');
+  const bad = validateEpicFields({ module: 'search-match', bucket: 'nope', title: 't', bullets: [{ text: 'x', featureIds: ['f1'] }] }, FEATURES);
+  assert.ok(bad.errors.length);
+});
+
+test('epicFeatureIds flattens every bullet\'s featureIds', function () {
+  const epic = { bullets: [{ featureIds: ['f1', 'f2'] }, { featureIds: ['f3'] }] };
+  assert.deepEqual(epicFeatureIds(epic), ['f1', 'f2', 'f3']);
+});
+
+test('withEpicAssignments sets epicId on newly-cited cards and clears it from dropped ones', function () {
+  const items = [
+    { id: 'f1', epicId: null },
+    { id: 'f2', epicId: 'e1' },
+    { id: 'f3', epicId: null }
+  ];
+  const next = withEpicAssignments(items, 'e1', ['f2'], ['f1', 'f3']);
+  assert.equal(next.find(function (f) { return f.id === 'f1'; }).epicId, 'e1');
+  assert.equal(next.find(function (f) { return f.id === 'f2'; }).epicId, null, 'dropped from this epic');
+  assert.equal(next.find(function (f) { return f.id === 'f3'; }).epicId, 'e1');
+});
+
+test('withEpicAssignments never steals a card another epic already claimed', function () {
+  const items = [{ id: 'f1', epicId: 'other-epic' }];
+  const next = withEpicAssignments(items, 'e1', ['f1'], []);
+  assert.equal(next[0].epicId, 'other-epic', 'only clears epicId that points at this same epic');
 });
