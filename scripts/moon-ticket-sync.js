@@ -101,10 +101,25 @@ function git(repoPath, args) {
   return execFileSync('git', args, { cwd: repoPath, encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 }).trim();
 }
 
+/* message/changed-file-stat/capped-diff for one commit — the richest data
+   either pass below needs. Exported so a one-off full-history backfill can
+   fetch this for an arbitrary list of shas without going through a
+   since..HEAD range. */
+function gatherOneCommit(repoPath, sha) {
+  const message = git(repoPath, ['log', '-1', '--pretty=%s%n%n%b', sha]).trim();
+  let files = '';
+  let diff = '';
+  try { files = git(repoPath, ['show', '--stat', '--format=', sha]).trim(); } catch (e) { /* binary/merge weirdness — not fatal */ }
+  try { diff = git(repoPath, ['show', '--format=', sha]).slice(0, MAX_DIFF_CHARS_PER_COMMIT); } catch (e) { /* same */ }
+  return { sha: sha, message: message, files: files, diff: diff };
+}
+
 /* Gathers every commit reachable from origin/main since `sinceSha` (or the
    entire history if null), each with its message, changed-file stat, and a
-   capped diff. One git fetch + one pass of `git show` per commit — the
-   richest data either pass below needs, computed once and shared. */
+   capped diff. One git fetch + one pass of `git show` per commit. `git log`
+   lists newest-first, so `commits[0]` is the most recent commit in range —
+   callers that cap the list (see runSemanticPass) must slice from the
+   front, not the back, to keep the most recent ones. */
 function gatherCommits(repoPath, sinceSha) {
   if (!fs.existsSync(repoPath)) {
     throw new Error('MOON_REPO_PATH does not exist: ' + repoPath);
@@ -116,14 +131,7 @@ function gatherCommits(repoPath, sinceSha) {
   const range = sinceSha ? sinceSha + '..origin/main' : 'origin/main';
   const shaList = git(repoPath, ['log', range, '--pretty=%H']).split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
 
-  const commits = shaList.map(function (sha) {
-    const message = git(repoPath, ['log', '-1', '--pretty=%s%n%n%b', sha]).trim();
-    let files = '';
-    let diff = '';
-    try { files = git(repoPath, ['show', '--stat', '--format=', sha]).trim(); } catch (e) { /* binary/merge weirdness — not fatal */ }
-    try { diff = git(repoPath, ['show', '--format=', sha]).slice(0, MAX_DIFF_CHARS_PER_COMMIT); } catch (e) { /* same */ }
-    return { sha: sha, message: message, files: files, diff: diff };
-  });
+  const commits = shaList.map(function (sha) { return gatherOneCommit(repoPath, sha); });
 
   return { commits: commits, headSha: headSha };
 }
@@ -231,7 +239,7 @@ async function runSemanticPass(env, cookie, features, commits, alreadyHandledIds
   if (commits.length > MAX_COMMITS_FOR_MATCHING) {
     log('Semantic pass: ' + commits.length + ' new commits exceeds the per-run cap of ' + MAX_COMMITS_FOR_MATCHING +
       ' — only the ' + MAX_COMMITS_FOR_MATCHING + ' most recent are sent for matching this run (ticket matching above still covered all of them).');
-    commitsForMatching = commits.slice(-MAX_COMMITS_FOR_MATCHING);
+    commitsForMatching = commits.slice(0, MAX_COMMITS_FOR_MATCHING);
   }
 
   process.env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
@@ -321,5 +329,5 @@ if (require.main === module) {
    reads of the real scripts/.env.local, state file, and log file on disk. */
 module.exports = {
   migrateState, extractTicketShas, MAX_COMMITS_FOR_MATCHING,
-  gatherCommits, apiLogin, apiGetFeatures, apiAction, runTicketPass, runSemanticPass
+  gatherCommits, gatherOneCommit, apiLogin, apiGetFeatures, apiAction, runTicketPass, runSemanticPass
 };
